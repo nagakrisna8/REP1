@@ -1,0 +1,110 @@
+return (
+  <div style={{ paddingBottom: 20 }}>
+    <Card
+      style={{
+        borderLeft: "4px solid #0033A1",
+        marginLeft: "22px",
+      }}
+    >
+      <AnyGrid
+        id="kgrid-oss-checklistType"
+        ref={gridRefBuilder}
+        style={{ height: "60vh", minHeight: 400 }}
+        scrollable="scrollable"
+        data={process(props.supplierCategoryData, props.dataState).data}
+        selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
+        editField={editField}
+        onItemChange={props.itemChange}
+        resizable
+        dataItemKey={props.KEY}
+        sortable={false}
+        rowHeight={30}
+        {...props.dataState}
+        selectedField={SELECTED_FIELD}
+        onDataStateChange={props.dataStateChange}
+        columnMenuIcon={filterIcon}
+      >
+        <GridToolbar>
+          <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+
+            {/* LEFT SIDE BUTTONS */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <Button
+                startIcon={
+                  <AddCircleOutlineIcon
+                    style={{ width: 20, height: 20, color: "#737373" }}
+                  />
+                }
+                onClick={props.createSupplierCategory}
+                variant="outlined"
+                size="small"
+                color="inherit"
+              >
+                <Typography variant="button" sx={{ textTransform: "none" }}>
+                  Create New
+                </Typography>
+              </Button>
+
+              <Button
+                onClick={props.saveSupplierCategory}
+                variant="outlined"
+                size="small"
+                color="inherit"
+              >
+                <Typography variant="button" sx={{ textTransform: "none" }}>
+                  Save
+                </Typography>
+              </Button>
+            </div>
+
+            {/* RIGHT SIDE SORT DROPDOWN */}
+            <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center" }}>
+              <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
+              <Select
+                value={props.sortBy || "custom"}
+                style={{ width: "160px" }}
+                onChange={(e) =>
+                  props.handleSortByChange(
+                    "supplierCategory",
+                    e.target.value as "custom" | "asc" | "desc"
+                  )
+                }
+              >
+                <MenuItem value="custom">
+                  <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                  Customize
+                </MenuItem>
+                <MenuItem value="asc">
+                  <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                  Supplier Category: Ascending
+                </MenuItem>
+                <MenuItem value="desc">
+                  <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                  Supplier Category: Descending
+                </MenuItem>
+              </Select>
+            </div>
+          </div>
+        </GridToolbar>
+
+        <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+
+        <GridColumn
+          {...props.columnPropsBuilder("DESCRIPTION")}
+          title="Supplier Type"
+          cells={{ data: SupplierCategoryNameCell }}
+          width={setPercentage(undefined, 0, 272)}
+          columnMenu={GridFilterMenuWithoutSort}
+        />
+
+        <GridColumn
+          {...props.columnPropsBuilder("ISACTIVE")}
+          title="Active"
+          cells={{ data: activeCheckbox }}
+          width="165px"
+          columnMenu={GridFilterMenuWithoutSort}
+        />
+      </AnyGrid>
+    </Card>
+  </div>
+);
