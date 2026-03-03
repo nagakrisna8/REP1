@@ -186,78 +186,92 @@ const SupplierActivityTable: React.FC<SupplierActivityTableProps> = memo((props)
 
   const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
     const dataItem: SupplierActivityMasterTable = cellProps.dataItem;
-    const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
       if (cellProps.onChange) {
         const updatedDataItem: SupplierActivityMasterTable = { ...dataItem };
         updatedDataItem.ISACTIVE = e.target.checked;
-        if (e.target.checked) {
+        if (cellProps.onChange) {
           cellProps.onChange({
             dataIndex: cellProps.dataIndex,
             dataItem: updatedDataItem,
             field: cellProps.field,
-            syntheticEvent: {} as React.SyntheticEvent, // Faking the syntheticEvent since it's not triggered by focus
+            syntheticEvent: {} as React.SyntheticEvent,
             value: e.target.value,
           });
         }
       }
-    };
+    }
 
     return (
       <td title={dataItem.ISACTIVE ? "True" : "False"}>
         <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ISACTIVE} onChange={handleActiveChange} />
+          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ISACTIVE} onChange={handleActiveChange}
+          // disabled={cellProps.dataItem.USERDEFINED_FLAG !== "Y" || cellProps.dataItem.newFlag} 
+          />
         </div>
       </td>
     );
   };
 
   return (
-    <div style={{ height: "calc(100vh - 320px)" }}>
-      <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: "22px", overflow: "hidden", maxHeight: "calc(100vh - 320px)" }}>
+    <div style={{ paddingBottom: 20 }}>
+      <Card
+        style={{
+          borderLeft: "4px solid #0033A1",
+          marginLeft: "22px",
+        }}
+      >
         <AnyGrid
           id="kgrid-oss-checklistType"
           ref={gridRefBuilder}
+          style={{ height: "60vh", minHeight: 400 }}
+          scrollable="scrollable"
           data={process(props.supplierActivityData, props.dataState).data}
           selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
           editField={editField}
           onItemChange={props.itemChange}
           resizable
           dataItemKey={props.KEY}
-          scrollable="scrollable"
           sortable={false}
           rowHeight={30}
           {...props.dataState}
           selectedField={SELECTED_FIELD}
           onDataStateChange={props.dataStateChange}
           columnMenuIcon={filterIcon}
-        // rowRender={detailRowRenderer}
         >
           <GridToolbar>
-            <div style={{ display: "flex" }}>
-              <div style={{ display: "flex", gap: 8, minWidth: 0, flexShrink: 1 }}>
-                <>
-                  <Button
-                    startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />}
-                    id="addFavBtn"
-                    onClick={props.createSupplierActivity}
-                    variant="outlined"
-                    size="small"
-                    color="inherit"
-                  >
-                    <Typography variant="button" sx={{ textTransform: "none" }}>
-                      <b style={{ fontWeight: "normal" }}>Create New</b>
-                    </Typography>
-                  </Button>
-                  <Button id="addFavBtn"
-                    // disabled={true}
-                    onClick={props.saveSupplierActivity}
-                    variant="outlined" size="small" color="inherit">
-                    <Typography variant="button" sx={{ textTransform: "none" }}>
-                      <b style={{ fontWeight: "normal" }}>Save</b>
-                    </Typography>
-                  </Button>
-                </>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+
+              {/* LEFT SIDE BUTTONS */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button
+                  startIcon={
+                    <AddCircleOutlineIcon
+                      style={{ width: 20, height: 20, color: "#737373" }}
+                    />
+                  }
+                  onClick={props.createSupplierActivity}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    Create New
+                  </Typography>
+                </Button>
+
+                <Button
+                  onClick={props.saveSupplierActivity}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    Save
+                  </Typography>
+                </Button>
               </div>
+
               <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
                 <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
                 <Select
@@ -266,16 +280,16 @@ const SupplierActivityTable: React.FC<SupplierActivityTableProps> = memo((props)
                   onChange={(e) => props.handleSortByChange("supplierActivity", e.target.value as "custom" | "asc" | "desc")}
                 >
                   <MenuItem value="custom"><SettingsIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Customize</MenuItem>
-                  <MenuItem disabled={props.sortBy === undefined} value="asc"><ArrowUpwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Supplier Activity: Ascending</MenuItem>
-                  <MenuItem disabled={props.sortBy === undefined} value="desc"><ArrowDownwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Supplier Activity: Descending</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="asc"><ArrowUpwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Supplier Category: Ascending</MenuItem>
+                  <MenuItem disabled={props.sortBy === undefined} value="desc"><ArrowDownwardIcon style={{ color: "#737373", height: 16, width: 16, marginRight: 8 }} />Supplier Category: Descending</MenuItem>
                 </Select>
               </div>
             </div>
           </GridToolbar>
+
           <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
           <GridColumn {...props.columnPropsBuilder("ACTIVITYCATEGORY")} title={"Activity Category"} cells={{ data: SupplierActivityCell }} width={'450px'} columnMenu={GridFilterMenuWithoutSort} />
           <GridColumn {...props.columnPropsBuilder("ACTIVITYDESCRIPTION")} title={"Activity Description"} cells={{ data: SupplierActivityDescCell }} width={setPercentage(undefined, 0, 272)} columnMenu={GridFilterMenuWithoutSort} />
-          <GridColumn {...props.columnPropsBuilder("ISACTIVE")} title="Active" cells={{ data: activeCheckbox }} width={"165px"} columnMenu={GridFilterMenuWithoutSort} />
         </AnyGrid>
       </Card>
     </div>
