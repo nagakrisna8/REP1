@@ -1,311 +1,258 @@
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { OrganizationTypeMasterTable, SortByData } from "../AdminModal";
-import { getter, State, process } from "@progress/kendo-data-query";
-import { Grid as DataGrid, GridCellProps, GridColumn, GridColumnMenuFilter, GridColumnMenuProps, GridDataStateChangeEvent, GridItemChangeEvent, GridToolbar } from "@progress/kendo-react-grid";
+import React, { memo, useEffect, useRef, useState } from "react";
+import {
+  Grid as DataGrid,
+  GridCellProps,
+  GridColumn,
+  GridColumnMenuFilter,
+  GridColumnMenuProps,
+  GridToolbar
+} from "@progress/kendo-react-grid";
+import { getter, process } from "@progress/kendo-data-query";
 import { Button, Card, MenuItem, Select, TextField, Typography } from "@mui/material";
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import SortIcon from "@mui/icons-material/Sort";
 import { filterIcon } from "@progress/kendo-svg-icons";
-import { useDispatch } from "react-redux";
-import SettingsIcon from '@mui/icons-material/Settings';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import SortIcon from '@mui/icons-material/Sort';
+
+import { OrganizationTypeMasterTable, SortByData } from "../AdminModal";
+
+const AnyGrid = DataGrid as any;
 
 const editField = "inEdit";
-const SELECTED_FIELD: string = "selected";
-const AnyGrid = DataGrid as any;
-const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => {
-  return (
-    <div>
-      <GridColumnMenuFilter {...props} expanded={true} />
-    </div>
-  );
-};
-interface OrganizationTypeTableProps {
+const SELECTED_FIELD = "selected";
+
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
+  <GridColumnMenuFilter {...props} expanded />
+);
+
+interface Props {
   KEY: string;
-  // selectedState: {
-  //   [id: string]: boolean | number[];
-  // };
-  columnPropsBuilder: (field: any) => {
-    field: any;
-    columnMenu: (props: any) => JSX.Element;
-    headerClassName: string;
-  };
   organizationTypeData: OrganizationTypeMasterTable[];
-  dataState: State;
-  dataStateChange: (event: GridDataStateChangeEvent) => void;
-  itemChange: (event: GridItemChangeEvent) => void;
+  dataState: any;
+  columnPropsBuilder: (field: any) => any;
+  dataStateChange: any;
+  itemChange: any;
   createOrganizationType: () => void;
   saveOrganizationType: () => void;
   dragStart: (dataItem: OrganizationTypeMasterTable) => void;
   reorder: (dataItem: OrganizationTypeMasterTable) => void;
-  sortBy: "custom" | "asc" | "desc" | undefined
-  handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void
+  sortBy: "custom" | "asc" | "desc" | undefined;
+  handleSortByChange: (
+    key: keyof SortByData,
+    value: "custom" | "asc" | "desc"
+  ) => void;
 }
 
-const OrganizationTypeTable: React.FC<OrganizationTypeTableProps> = memo((props) => {
-  const idGetter = getter(props.KEY);
-  const dispatch = useDispatch();
-  const gridRefBuilder = useRef<any>(null);
-  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+const OrganizationTypeNameCell = (props: GridCellProps) => {
+  const { dataItem, field = "" } = props;
+  const value = dataItem[field] ?? "";
 
-  const OrganizationTypeNameCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
-    const { dataItem } = cellProps;
-    const field = cellProps.field || "";
-    const dataValue = dataItem[field] === null ? "" : dataItem[field];
-
-    const handleChange: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement> = (event) => {
-      if (cellProps.onChange) {
-        const updatedDataItem: OrganizationTypeMasterTable = { ...cellProps.dataItem };
-        updatedDataItem.ORGTYPE = event.target.value;
-        cellProps.onChange({
-          dataIndex: cellProps.dataIndex,
-          dataItem: updatedDataItem,
-          field: cellProps.field,
-          syntheticEvent: event,
-          value: event.target.value,
-        });
-      }
-    };
-
-    return (
-      <td title={dataValue}>
-        <TextField
-          fullWidth
-          className="dc-fpqdetails-categoryname-input"
-          value={dataValue}
-          onChange={handleChange}
-        />
-
-      </td>
-    );
-  }, []);
-
-  const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => {
-    return (
-      <td
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.dataTransfer.dropEffect = "copy";
-          props.reorder(dragcellprops.dataItem);
-        }}
-      >
-        <span
-          className="k-icon k-i-reorder"
-          draggable={true}
-          style={{
-            cursor: "move",
-            color: "#737373",
-            display: "flex",
-            justifyContent: "center",
-          }}
-          onDragStart={(e) => {
-            props.dragStart(dragcellprops.dataItem);
-            e.dataTransfer.setData("dragging", "");
-          }}
-        >
-          <SortIcon />
-        </span>
-      </td>
-    );
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    props.onChange?.({
+      dataIndex: props.dataIndex,
+      dataItem: { ...dataItem, ORGTYPE: e.target.value },
+      field,
+      syntheticEvent: e,
+      value: e.target.value
+    });
   };
 
+  return (
+    <td title={value}>
+      <TextField fullWidth value={value} onChange={handleChange} />
+    </td>
+  );
+};
 
-  // const getOrganizationCountData = async (OrgTypeId) => {
-  //   try {
+const ActiveCheckboxCell = (props: GridCellProps) => {
+  const { dataItem } = props;
 
-  //     const result = await ConfigurationService.getChecklistCount(OrgTypeId);
-  //     return result.data;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    props.onChange?.({
+      dataIndex: props.dataIndex,
+      dataItem: { ...dataItem, ISACTIVE: e.target.checked },
+      field: props.field,
+      syntheticEvent: e,
+      value: e.target.checked
+    });
+  };
 
-  //   } catch (error) {
-  //     console.log(error)
-  //   }
-  // }
+  return (
+    <td title={dataItem.ISACTIVE ? "True" : "False"}>
+      <div style={{ display: "flex", justifyContent: "center" }}>
+        <input
+          type="checkbox"
+          checked={dataItem.ISACTIVE}
+          onChange={handleChange}
+          style={{ cursor: "pointer" }}
+        />
+      </div>
+    </td>
+  );
+};
+
+const DragCell = ({ dataItem, ...props }: GridCellProps) => {
+  const { dragStart, reorder } = props as any;
+
+  return (
+    <td
+      onDragOver={(e) => {
+        e.preventDefault();
+        reorder(dataItem);
+      }}
+    >
+      <span
+        draggable
+        style={{ cursor: "move", display: "flex", justifyContent: "center" }}
+        onDragStart={(e) => {
+          dragStart(dataItem);
+          e.dataTransfer.setData("dragging", "");
+        }}
+      >
+        <SortIcon />
+      </span>
+    </td>
+  );
+};
+
+const OrganizationTypeTable: React.FC<Props> = memo((props) => {
+  const gridRef = useRef<any>(null);
+  const idGetter = getter(props.KEY);
+
+  const [dynamicWidth, setDynamicWidth] = useState(0);
+  const [fixedWidth, setFixedWidth] = useState(0);
 
   useEffect(() => {
-    if (gridRefBuilder?.current) {
-      const headerCells = gridRefBuilder.current.element.querySelectorAll('.k-header');
-      let calculatedFixedColumnWidth = 0;
-      let dynamicWidth = 0;
-      headerCells.forEach((cell, index) => {
-        if (gridRefBuilder.current.columns[index].width != undefined) {
-          if (gridRefBuilder.current.columns[index].width.toString().indexOf('px') > -1) {
-            calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRefBuilder.current.columns[index].width)
-          }
-          else {
-            dynamicWidth = dynamicWidth + gridRefBuilder.current.columns[index].width;
-          }
-        };
-        const columnHeader = gridRefBuilder.current.columns[index].title;
-        cell.title = columnHeader;
-      });
-      setCalculatedDynamicColWidth(dynamicWidth);
-      setTotalColumnFixedWidth(calculatedFixedColumnWidth)
-    }
-  }, [gridRefBuilder])
+    if (!gridRef.current) return;
 
-  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-    let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
-    let fixedWidth = totalColumnFixedWidth;
-    let dynamicWidth = 0;
-    let minScreenWidth = 1250;
-    let maxScreenWidth;
-    if (k_grid_width) {
-      if (k_grid_width <= minScreenWidth) {
-        return minWidth;
+    const headers = gridRef.current.element.querySelectorAll(".k-header");
+    let fixed = 0;
+    let dynamic = 0;
+
+    headers.forEach((cell: any, index: number) => {
+      const column = gridRef.current.columns[index];
+
+      if (column.width?.toString().includes("px")) {
+        fixed += parseInt(column.width);
+      } else {
+        dynamic += column.width || 0;
       }
-      else {
-        dynamicWidth = k_grid_width - fixedWidth;
-        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
-          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
-          return Math.max(minWidth, dynamicColumnWidth);
-        }
-        else {
-          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
-        }
-      }
-    }
 
-  }
+      cell.title = column.title;
+    });
 
-  const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-    const dataItem: OrganizationTypeMasterTable = cellProps.dataItem;
-    const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
-      if (cellProps.onChange) {
-        const updatedDataItem: OrganizationTypeMasterTable = { ...dataItem };
-        // updatedDataItem.ISACTIVE = e.target.checked ? "Y" : "N";
-        updatedDataItem.ISACTIVE = e.target.checked;
+    setFixedWidth(fixed);
+    setDynamicWidth(dynamic);
+  }, []);
 
-        // if (updatedDataItem.ISACTIVE == false) {
-        //   const count = await getOrganizationCountData(dataItem.ORGID);
-        //   if (count > 0) {
-        //     // dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: `${dataItem.ORGTYPE} is associated with existing template(s). So, it cannot be marked as inactive.` }));
-        //     return;
-        //   }
+  const setPercentage = (minWidth = 200) => {
+    const gridWidth =
+      document.querySelector("#kgrid-oss-checklistType")?.clientWidth || 0;
 
-        // }
-        if (cellProps.onChange) {
-          cellProps.onChange({
-            dataIndex: cellProps.dataIndex,
-            dataItem: updatedDataItem,
-            field: cellProps.field,
-            syntheticEvent: {} as React.SyntheticEvent,
-            value: e.target.value,
-          });
-        }
+    if (gridWidth <= 1250) return minWidth;
 
-
-      }
-    }
-    return (
-      <td title={dataItem.ISACTIVE ? "True" : "False"}>
-        <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ISACTIVE} onChange={handleActiveChange}
-          />
-        </div>
-      </td>
-    );
+    const availableWidth = gridWidth - fixedWidth;
+    return Math.max(minWidth, availableWidth - dynamicWidth);
   };
 
   return (
     <div style={{ paddingBottom: 20 }}>
-      <Card
-        style={{
-          borderLeft: "4px solid #0033A1",
-          marginLeft: "22px",
-        }}
-      >
+      <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: 22 }}>
         <AnyGrid
           id="kgrid-oss-checklistType"
-          ref={gridRefBuilder}
+          ref={gridRef}
           style={{ height: "60vh", minHeight: 400 }}
-          scrollable="scrollable"
           data={process(props.organizationTypeData, props.dataState).data}
-          selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
-          editField={editField}
-          onItemChange={props.itemChange}
-          resizable
           dataItemKey={props.KEY}
-          sortable={false}
-          rowHeight={30}
-          {...props.dataState}
           selectedField={SELECTED_FIELD}
-          onDataStateChange={props.dataStateChange}
+          editField={editField}
+          rowHeight={30}
+          resizable
+          sortable={false}
+          scrollable="scrollable"
           columnMenuIcon={filterIcon}
+          onItemChange={props.itemChange}
+          onDataStateChange={props.dataStateChange}
+          {...props.dataState}
         >
           <GridToolbar>
-            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
-
-              {/* LEFT SIDE BUTTONS */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                width: "100%"
+              }}
+            >
               <div style={{ display: "flex", gap: 8 }}>
                 <Button
-                  startIcon={
-                    <AddCircleOutlineIcon
-                      style={{ width: 20, height: 20, color: "#737373" }}
-                    />
-                  }
+                  startIcon={<AddCircleOutlineIcon />}
                   onClick={props.createOrganizationType}
                   variant="outlined"
                   size="small"
-                  color="inherit"
                 >
-                  <Typography variant="button" sx={{ textTransform: "none" }}>
-                    Create New
-                  </Typography>
+                  Create New
                 </Button>
 
                 <Button
                   onClick={props.saveOrganizationType}
                   variant="outlined"
                   size="small"
-                  color="inherit"
                 >
-                  <Typography variant="button" sx={{ textTransform: "none" }}>
-                    Save
-                  </Typography>
+                  Save
                 </Button>
               </div>
 
-              {/* RIGHT SIDE SORT DROPDOWN */}
-               <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
-                <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Typography>Sort Order :</Typography>
+
                 <Select
                   value={props.sortBy || "custom"}
-                  style={{ width: "160px" }}
-                  onChange={(e) => props.handleSortByChange("organizationType", e.target.value as "custom" | "asc" | "desc")}
+                  style={{ width: 180 }}
+                  onChange={(e) =>
+                    props.handleSortByChange(
+                      "organizationType",
+                      e.target.value as "custom" | "asc" | "desc"
+                    )
+                  }
                 >
                   <MenuItem value="custom">
-                    <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                    Customize
+                    <SettingsIcon sx={{ mr: 1 }} /> Customize
                   </MenuItem>
+
                   <MenuItem value="asc">
-                    <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                    Organization Type: Ascending
+                    <ArrowUpwardIcon sx={{ mr: 1 }} />
+                    Ascending
                   </MenuItem>
+
                   <MenuItem value="desc">
-                    <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                    Organization Type: Descending
+                    <ArrowDownwardIcon sx={{ mr: 1 }} />
+                    Descending
                   </MenuItem>
                 </Select>
               </div>
             </div>
           </GridToolbar>
 
-          <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+          <GridColumn
+            title="Sort"
+            cells={{ data: (p) => <DragCell {...p} {...props} /> }}
+            width="90px"
+          />
 
           <GridColumn
             {...props.columnPropsBuilder("ORGTYPE")}
             title="Organization Type"
             cells={{ data: OrganizationTypeNameCell }}
-            width={setPercentage(undefined, 0, 272)}
+            width={setPercentage(272)}
             columnMenu={GridFilterMenuWithoutSort}
           />
 
           <GridColumn
             {...props.columnPropsBuilder("ISACTIVE")}
             title="Active"
-            cells={{ data: activeCheckbox }}
+            cells={{ data: ActiveCheckboxCell }}
             width="165px"
             columnMenu={GridFilterMenuWithoutSort}
           />
