@@ -42,7 +42,7 @@ const ORGANIZATION_TYPE_idGetter = getter(ORGANIZATION_TYPE_DATA_ITEM_KEY);
 const SUPPLIER_ACTIVITY_DATA_ITEM_KEY: string = "ID";
 const SUPPLIER_ACTIVITY_idGetter = getter(SUPPLIER_ACTIVITY_DATA_ITEM_KEY);
 
-const ORGANIZATION_DATA_ITEM_KEY = "ID";
+const ORGANIZATION_DATA_ITEM_KEY = "ORGANIZATIONID";
 const REASON_CODE_idGetter = getter(ORGANIZATION_DATA_ITEM_KEY);
 
 const SUPPLIER_CATEGORY_DATA_ITEM_KEY: string = "ID";
@@ -368,16 +368,24 @@ const TableMaintenance: React.FC = () => {
 
         setDirtyFlag(true);
     }
-    const organizationItemChange = async (event: GridItemChangeEvent) => {
-        let tempOrg = [...organizationData];
-        const match = tempOrg.findIndex((i) => i.ORGANIZATIONID === event.dataItem.ID);
+   const organizationItemChange = (event: GridItemChangeEvent) => {
 
-        if (match !== -1 && event.field) {
-            tempOrg[match] = event.dataItem;
-            setOrganizationData(tempOrg);
-            setDirtyFlag(true);
+    const newData = organizationData.map(item => {
+
+        if (item.ORGANIZATIONID === event.dataItem.ORGANIZATIONID) {
+
+            return {
+                ...item,
+                [event.field as string]: event.value
+            };
         }
-    };
+
+        return item;
+    });
+
+    setOrganizationData(newData);
+    setDirtyFlag(true);
+};
     const CreateOrganization = () => {
         const newOrganization: OrganizationTableData = {
             ORGANIZATIONID: new Date().getTime(),
@@ -393,138 +401,146 @@ const TableMaintenance: React.FC = () => {
         setDirtyFlag(true);
 
     };
-    const saveOrganization = async () => {
-        if (!dirtyFlag) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "No data to save.",
-            }));
-            return;
+   const saveOrganization = async () => {
+
+    if (!dirtyFlag) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No data to save.",
+        }));
+        return;
+    }
+
+    const current = [...organizationData];
+    const original = [...originalOrganizationData];
+
+    // validation
+    if (
+        current.some(
+            (i) =>
+                !i.ORGANIZATIONNAME ||
+                i.ORGANIZATIONNAME.trim() === ""
+        )
+    ) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Please fill details.",
+        }));
+        return;
+    }
+
+    // unique validation
+    const uniqueCombinationCount = new Set(
+        current.map(
+            (i) =>
+                `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION?.trim().toLowerCase()}`
+        )
+    ).size;
+
+    if (uniqueCombinationCount !== current.length) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage:
+                "Organization Name + MOA Number must be unique.",
+        }));
+        return;
+    }
+
+    const items: MasterDataItem[] = [];
+
+    current.forEach((row) => {
+        const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
+        if (!originalRow) {
+
+            items.push({
+                Id: 0,
+                OperationType: "add",
+                Name: row.ORGANIZATIONNAME.trim(),
+                Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
+                Notes: row.NOTES?.trim() || "",
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+                orgTypeId: selectedOrgId
+            });
         }
 
-        const current = [...organizationData];
-        const original = [...originalOrganizationData];
-        console.log(current, 'current');
+        // UPDATE
+        else if (
+            originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
+            originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
+            originalRow.NOTES !== row.NOTES ||
+            originalRow.ISACTIVE !== row.ISACTIVE ||
+            originalRow.SORT_ORDER !== row.SORT_ORDER
+        ) {
 
-        // if (
-        //     current.some(
-        //         (i) =>
-        //             !i.ORGANIZATIONNAME ||
-        //             i.ORGANIZATIONNAME.trim() === ""
-        //     )
-        // ) {
-        //     dispatch(showSnackbar({
-        //         snackbarOpen: true,
-        //         snackbarType: "error",
-        //         snackbarMessage: "Please fill details.",
-        //     }));
-        //     return;
-        // }
-
-        // const uniqueCombinationCount = new Set(
-        //     current.map(
-        //         (i) =>
-        //             `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION.trim().toLowerCase()}`
-        //     )
-        // ).size;
-
-        // if (uniqueCombinationCount !== current.length) {
-        //     dispatch(showSnackbar({
-        //         snackbarOpen: true,
-        //         snackbarType: "error",
-        //         snackbarMessage:
-        //             "Organization Name + MOA Number must be unique.",
-        //     }));
-        //     return;
-        // }
-
-        // 🔥 DETECT CHANGES
-        const items: MasterDataItem[] = [];
-
-        current.forEach((row) => {
-            const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
-
-            if (!originalRow) {
-                items.push({
-                    Id: 0,
-                    OperationType: "add",
-                    Name: row.ORGANIZATIONNAME.trim(),
-                    Description: row.ORGANIZATIONDESCRIPTION.trim(),
-                    Notes: row.NOTES?.trim() || "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId:selectedOrgId
-                });
-            }
-            else if (
-                originalRow.ORGANIZATIONID !== row.ORGANIZATIONID ||
-                originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
-                originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
-                originalRow.NOTES !== row.NOTES ||
-                originalRow.ISACTIVE !== row.ISACTIVE ||
-                originalRow.SORT_ORDER !== row.SORT_ORDER
-            ) {
-                items.push({
-                    Id: row.ORGANIZATIONID,
-                    OperationType: "update",
-                    Name: row.ORGANIZATIONNAME.trim(),
-                    Description: row?.ORGANIZATIONDESCRIPTION?.trim() ?? "",
-                    Notes: row.NOTES?.trim() || "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId:0
-                });
-            }
-        });
-
-        if (items.length === 0) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "No changes detected.",
-            }));
-            return;
+            items.push({
+                Id: row.ORGANIZATIONID,
+                OperationType: "update",
+                Name: row.ORGANIZATIONNAME.trim(),
+                Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
+                Notes: row.NOTES?.trim() || "",
+                IsActive: row.ISACTIVE ? "Y" : "N",
+                Address: "",
+                Department: "",
+                Phone: "",
+                Email: "",
+                Title: "",
+                orgTypeId: 0
+            });
         }
 
-       const payload: MasterDataPayload = {
-            MasterDataType: "Organization",
-            Items: items,
-        };
+    });
 
-        try {
-            await EasaListService.addMasterDataType(payload);
+    if (items.length === 0) {
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "No changes detected.",
+        }));
+        return;
+    }
 
-            setDirtyFlag(false);
-            fetchOrganization(selectedOrgId);
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Organization saved successfully.",
-            }));
-        } catch (error) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Error saving Organization.",
-            }));
-        }
+    const payload: MasterDataPayload = {
+        MasterDataType: "Organization",
+        Items: items,
     };
+
+    try {
+
+        await EasaListService.addMasterDataType(payload);
+
+        setDirtyFlag(false);
+
+        fetchOrganization(selectedOrgId);
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "success",
+            snackbarMessage: "Organization saved successfully.",
+        }));
+
+    } catch (error) {
+
+        dispatch(showSnackbar({
+            snackbarOpen: true,
+            snackbarType: "error",
+            snackbarMessage: "Error saving Organization.",
+        }));
+    }
+};
     const fetchOrganization = (orgTypeId: number) => {
         let masterdataType = 1;
         EasaListService.getAdminMasterDetailsOrgType(masterdataType, orgTypeId)
             .then((response) => {
                 let result: OrganizationTableData[] = response?.data.map(org => ({
-                    ID: org.ORGANIZATIONID,
+                    ORGANIZATIONID: org.ORGANIZATIONID,
                     ORGANIZATIONNAME: org.ORGANIZATIONNAME,
                     ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
                     NOTES: org.NOTES,
