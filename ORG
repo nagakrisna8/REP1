@@ -231,7 +231,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
   // Track which row's focal panel is open (by ORGID or unique key)
   const [expandedFocalRowKey, setExpandedFocalRowKey] = useState<string | number | null>(null);
 
-  const ChecklistTypeNameCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+  const OrganizationCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
     const { dataItem } = cellProps;
     const field = cellProps.field || "";
     const dataValue = dataItem[field] === null ? "" : dataItem[field];
@@ -348,27 +348,31 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
     }
   }, [gridRefBuilder]);
 
-  const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
     const dataItem: OrganizationTableData = cellProps.dataItem;
-
     const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
       if (cellProps.onChange) {
         const updatedDataItem: OrganizationTableData = { ...dataItem };
-        updatedDataItem.ISACTIVE = e.target.checked;       
-        cellProps.onChange({
-          dataIndex: cellProps.dataIndex,
-          dataItem: updatedDataItem,
-          field: cellProps.field,
-          syntheticEvent: {} as React.SyntheticEvent,
-          value: e.target.value,
-        });
-      }
-    };
+        updatedDataItem.ISACTIVE = e.target.checked;
 
+        if (cellProps.onChange) {
+          cellProps.onChange({
+            dataIndex: cellProps.dataIndex,
+            dataItem: updatedDataItem,
+            field: cellProps.field,
+            syntheticEvent: {} as React.SyntheticEvent,
+            value: e.target.value,
+          });
+        }
+
+
+      }
+    }
     return (
       <td title={dataItem.ISACTIVE ? "True" : "False"}>
         <div style={{ width: "100%", height: "100%", display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ISACTIVE} onChange={handleActiveChange} />
+          <input type="checkbox" style={{ marginLeft: "3px", cursor: "pointer" }} checked={dataItem.ISACTIVE} onChange={handleActiveChange}
+          />
         </div>
       </td>
     );
@@ -400,7 +404,7 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           rowRender={detailRowRenderer}
         >
           <GridToolbar>
-            <div style={{ display: "flex" ,justifyContent: "space-between", width: "100%"}}>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
               <div style={{ display: "flex", gap: 8, }}>
                 <>
                   <Button
@@ -441,10 +445,16 @@ const OrganizationTable: React.FC<OrganizationTypeTableProps> = memo((props) => 
           </GridToolbar>
 
           <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
-          <GridColumn {...props.columnPropsBuilder("ORGANIZATIONNAME")} title="Organization Name" cells={{ data: ChecklistTypeNameCell }} width="300px" columnMenu={GridFilterMenuWithoutSort} />
-          <GridColumn {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")} title="MOA Number" cells={{ data: ChecklistTypeNameCell }} width="240px" columnMenu={GridFilterMenuWithoutSort} />
-          <GridColumn {...props.columnPropsBuilder("ISACTIVE")} title="Active" cells={{ data: activeCheckbox }} width="130px" columnMenu={GridFilterMenuWithoutSort} />
-          <GridColumn {...props.columnPropsBuilder("NOTES")} title="Notes" cells={{ data: ChecklistTypeNameCell }} width="360px" />
+          <GridColumn {...props.columnPropsBuilder("ORGANIZATIONNAME")} title="Organization Name" cells={{ data: OrganizationCell }} width="300px" columnMenu={GridFilterMenuWithoutSort} />
+          <GridColumn {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")} title="MOA Number" cells={{ data: OrganizationCell }} width="240px" columnMenu={GridFilterMenuWithoutSort} />
+          <GridColumn
+            {...props.columnPropsBuilder("ISACTIVE")}
+            title="Active"
+            cells={{ data: activeCheckbox }}
+            width="165px"
+            columnMenu={GridFilterMenuWithoutSort}
+          />
+          <GridColumn {...props.columnPropsBuilder("NOTES")} title="Notes" cells={{ data: OrganizationCell }} width="360px" />
           <GridColumn title="Contact Focals" cells={{ data: ContactFocals }} width="200px" />
         </AnyGrid>
       </Card>
