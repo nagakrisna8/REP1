@@ -70,13 +70,13 @@ const SupplierCategoryTable: React.FC<SupplierCategoryTableProps> = memo((props)
 
     return (
       <td title={dataValue}>
-          <TextField
-            fullWidth
-            className="dc-fpqdetails-categoryname-input"
-            value={dataValue}
-            onChange={handleChange}
-          // error={dataValue.trim() === "" || props.supplierCategoryData.some((i) => i.CHECKLIST_TYPE.trim().toLowerCase() === dataValue.trim().toLowerCase() && i.CHECKLIST_TYPE_ID !== cellProps.dataItem.CHECKLIST_TYPE_ID)}
-          />
+        <TextField
+          fullWidth
+          className="dc-fpqdetails-categoryname-input"
+          value={dataValue}
+          onChange={handleChange}
+        // error={dataValue.trim() === "" || props.supplierCategoryData.some((i) => i.CHECKLIST_TYPE.trim().toLowerCase() === dataValue.trim().toLowerCase() && i.CHECKLIST_TYPE_ID !== cellProps.dataItem.CHECKLIST_TYPE_ID)}
+        />
       </td>
     );
   }, []);
@@ -174,15 +174,8 @@ const SupplierCategoryTable: React.FC<SupplierCategoryTableProps> = memo((props)
     const handleActiveChange: React.ChangeEventHandler<HTMLInputElement> = async (e) => {
       if (cellProps.onChange) {
         const updatedDataItem: SupplierCategoryMasterTable = { ...dataItem };
-        updatedDataItem.ISACTIVE = e.target.checked;
-
-        if (updatedDataItem.ISACTIVE == false) {
-          const count = await getSupplierCategoryCountData(dataItem.ID);
-          if (count > 0) {
-            return;
-          }
-
-        }
+        updatedDataItem.ISACTIVE = e.target.checked;     
+        
         if (cellProps.onChange) {
           cellProps.onChange({
             dataIndex: cellProps.dataIndex,
@@ -207,18 +200,24 @@ const SupplierCategoryTable: React.FC<SupplierCategoryTableProps> = memo((props)
   };
 
   return (
-   <div style={{ height: "calc(100vh - 320px)" }}>
-      <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: "22px", overflow: "hidden", maxHeight: "calc(100vh - 320px)" }}>
+    <div style={{ paddingBottom: 20 }}>
+      <Card
+        style={{
+          borderLeft: "4px solid #0033A1",
+          marginLeft: "22px",
+        }}
+      >
         <AnyGrid
           id="kgrid-oss-checklistType"
           ref={gridRefBuilder}
+          style={{ height: "60vh", minHeight: 400 }}
+          scrollable="scrollable"
           data={process(props.supplierCategoryData, props.dataState).data}
           selectable={{ enabled: true, drag: false, cell: false, mode: "multiple" }}
           editField={editField}
           onItemChange={props.itemChange}
           resizable
           dataItemKey={props.KEY}
-          scrollable="scrollable"
           sortable={false}
           rowHeight={30}
           {...props.dataState}
@@ -227,31 +226,38 @@ const SupplierCategoryTable: React.FC<SupplierCategoryTableProps> = memo((props)
           columnMenuIcon={filterIcon}
         >
           <GridToolbar>
-            <div style={{ display: "flex" }}>
-              <div style={{ display: "flex", gap: 8, minWidth: 0, flexShrink: 1 }}>
-                <>
-                  <Button
-                    startIcon={<AddCircleOutlineIcon className="iconClass" style={{ width: 20, height: 20, color: "#737373" }} />}
-                    id="addFavBtn"
-                    onClick={props.createSupplierCategory}
-                    variant="outlined"
-                    size="small"
-                    color="inherit"
-                  >
-                    <Typography variant="button" sx={{ textTransform: "none" }}>
-                      <b style={{ fontWeight: "normal" }}>Create New</b>
-                    </Typography>
-                  </Button>
-                  <Button id="addFavBtn"
-                   // disabled={true}
-                    onClick={props.saveSupplierCategory} 
-                    variant="outlined" size="small" color="inherit">
-                    <Typography variant="button" sx={{ textTransform: "none" }}>
-                      <b style={{ fontWeight: "normal" }}>Save</b>
-                    </Typography>
-                  </Button>
-                </>
+            <div style={{ display: "flex", justifyContent: "space-between", width: "100%" }}>
+
+              {/* LEFT SIDE BUTTONS */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <Button
+                  startIcon={
+                    <AddCircleOutlineIcon
+                      style={{ width: 20, height: 20, color: "#737373" }}
+                    />
+                  }
+                  onClick={props.createSupplierCategory}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    Create New
+                  </Typography>
+                </Button>
+
+                <Button
+                  onClick={props.saveSupplierCategory}
+                  variant="outlined"
+                  size="small"
+                  color="inherit"
+                >
+                  <Typography variant="button" sx={{ textTransform: "none" }}>
+                    Save
+                  </Typography>
+                </Button>
               </div>
+
               <div style={{ display: "inline-flex", gap: 8, justifyContent: "center", alignItems: "center", marginLeft: "750px" }}>
                 <p style={{ margin: 0, padding: 0 }}>Sort Order : </p>
                 <Select
@@ -266,10 +272,25 @@ const SupplierCategoryTable: React.FC<SupplierCategoryTableProps> = memo((props)
               </div>
             </div>
           </GridToolbar>
-           <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
-          <GridColumn  {...props.columnPropsBuilder("DESCRIPTION")} title="Supplier Type" cells={{ data: SupplierCategoryNameCell }} width={setPercentage(undefined, 0, 272)} columnMenu={GridFilterMenuWithoutSort} />
-          <GridColumn {...props.columnPropsBuilder("ISACTIVE")} title="Active" cells={{ data: activeCheckbox }} width={'165px'} columnMenu={GridFilterMenuWithoutSort} />
-          </AnyGrid>
+
+          <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+
+          <GridColumn
+            {...props.columnPropsBuilder("DESCRIPTION")}
+            title="Supplier Type"
+            cells={{ data: SupplierCategoryNameCell }}
+            width={setPercentage(undefined, 0, 272)}
+            columnMenu={GridFilterMenuWithoutSort}
+          />
+
+          <GridColumn
+            {...props.columnPropsBuilder("ISACTIVE")}
+            title="Active"
+            cells={{ data: activeCheckbox }}
+            width="165px"
+            columnMenu={GridFilterMenuWithoutSort}
+          />
+        </AnyGrid>
       </Card>
     </div>
   );
