@@ -5,11 +5,11 @@ import {
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import {
-    CategoryTypeTable,
     OrganizationTypeMasterTable,
     SupplierActivityMasterTable, GetAdminSortByResponse,
     SortByData,
-    SupplierCategoryMasterTable, OrganizationTableData
+    SupplierCategoryMasterTable, OrganizationTableData,
+    MasterDataItem
 } from "./AdminModal";
 
 import EasaListService from "../EasaRegisterListService";
@@ -56,23 +56,10 @@ const ColumnMenuBuilder = (props) => {
         </div>
     );
 };
-interface MasterDataItem {
-    Id: number;
-    OperationType: string;
-    Name: string;
-    Description: string;
-    Notes: string;
-    IsActive: "Y" | "N";
-    Address: string;
-    Department: string;
-    Phone: string;
-    Email: string;
-    Title: string;
-    orgTypeId: number;
-}
+
 interface MasterDataPayload {
     MasterDataType: string;
-    Items: MasterDataItem[];
+    Items: MasterDataItem[]
 }
 const Options = [
     "Organization Type",
@@ -124,16 +111,7 @@ const TableMaintenance: React.FC = () => {
 
         setDirtyFlag(false);
         setSelectedPage(event.target.value as TableMaintenancePage);
-    };
-
-    // category type grid page
-    const [categoryTypeGridData, setCategoryTypeGridData] = useState<CategoryTypeTable[]>([]);
-
-
-
-   
-    // }
-
+    };   
     // checklistType states
     const [organizationTypeData, setOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
     const [disableChecklistTypePage, setDisableChecklistTypePage] = useState(false);
@@ -953,16 +931,15 @@ const TableMaintenance: React.FC = () => {
     //sorting functionality
     const handleSortByChange = (key: keyof SortByData, value: 'custom' | 'asc' | 'desc', setScreenDirty: boolean = true) => {
         if (key === 'organization') {
-            let ascCategoryData: CategoryTypeTable[] = [...categoryTypeGridData];
+            let ascChecklistData: OrganizationTableData[] = [...organizationData];
 
             if (value === 'asc' || value === 'desc') {
-                ascCategoryData = _.orderBy(ascCategoryData, ["CategoryType"], [value]);
+                ascChecklistData = _.orderBy(ascChecklistData, ["ORGANIZATIONNAME"], [value]);
 
                 let i = 1;
-                ascCategoryData = ascCategoryData.map(x => ({ ...x, Sorting: i++ }));
-                setCategoryTypeGridData(ascCategoryData);
-            }
-        }
+                ascChecklistData = ascChecklistData.map(x => ({ ...x, Sorting: i++ }));
+                setOrganizationData(ascChecklistData);
+            }        }
 
         if (key === 'organizationType') {
             let ascChecklistData: OrganizationTypeMasterTable[] = [...organizationTypeData];
@@ -1049,10 +1026,9 @@ const TableMaintenance: React.FC = () => {
     useEffect(() => {
         fetchMasterDataTypes();
     }, []);
-    console.log(organizationTypeData, supplierCategoryData, supplierActivityData, 'organizationTypeData');
     return (
-        <div className="FPQDetails-Admin-table-maintenance">
-            <div className="FPQDetails-Admin-table-maintenance-topbar">
+        <div className="EASA-Admin-table-maintenance">
+            <div className="EASA-Admin-table-maintenance-topbar">
                 <div>Master Data</div>
                 <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedPage} onChange={handlePageChange} size="medium">
                     {Options.map((item) => (
@@ -1094,7 +1070,7 @@ const TableMaintenance: React.FC = () => {
                 )}
             </div>
 
-            <div className="FPQDetails-Admin-table-maintenance-section">
+            <div className="EASA-Admin-table-maintenance-section">
                 {selectedPage === "Supplier Category" && (
                     <>
                         <SupplierCategoryTable
