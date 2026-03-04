@@ -1,0 +1,1181 @@
+import "./AdminTable.scss";
+import {
+    MenuItem, Select,
+    SelectChangeEvent
+} from "@mui/material";
+import React, { useEffect, useState } from "react";
+import {
+    CategoryTypeTable,
+    OrganizationTypeMasterTable,
+    SupplierActivityMasterTable, GetAdminSortByResponse,
+    SortByData,
+    SupplierCategoryMasterTable, OrganizationTableData
+} from "./AdminModal";
+
+import EasaListService from "../EasaRegisterListService";
+import { useDispatch } from "react-redux";
+import { State, getter } from "@progress/kendo-data-query";
+import {
+    GridColumnMenuFilter, GridColumnMenuSort,
+    GridDataStateChangeEvent, GridItemChangeEvent,
+    isColumnMenuFilterActive,
+    isColumnMenuSortActive
+} from "@progress/kendo-react-grid";
+import * as _ from "lodash";
+import EnvDetail from "../../../../../utils/EnvDetail";
+import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
+import StorageService from "../../../../../utils/StorageService";
+import OrganizationTypeTable from "./OrganizationType/OrganizationTypeTable";
+import SupplierActivityTable from "./SupplierActivity/SupplierActivityTable";
+import SupplierCategoryTable from "./SupplierCategory/SupplierCategoryTable";
+import OrganizationTable from "./Organization/OrganizationTable.Component";
+
+// constants
+const CATEGORY_CHECKLIST_DATA_ITEM_KEY: string = "Category_ID";
+const CATEGORY_CHECKLIST_idGetter = getter(CATEGORY_CHECKLIST_DATA_ITEM_KEY);
+
+const CATEGORY_DATA_ITEM_KEY = "CategoryTypeId";
+
+const ORGANIZATION_TYPE_DATA_ITEM_KEY: string = "ORGANIZATIONTYPEID";
+const ORGANIZATION_TYPE_idGetter = getter(ORGANIZATION_TYPE_DATA_ITEM_KEY);
+
+const SUPPLIER_ACTIVITY_DATA_ITEM_KEY: string = "ID";
+const SUPPLIER_ACTIVITY_idGetter = getter(SUPPLIER_ACTIVITY_DATA_ITEM_KEY);
+
+const ORGANIZATION_DATA_ITEM_KEY = "ID";
+const REASON_CODE_idGetter = getter(ORGANIZATION_DATA_ITEM_KEY);
+
+const SUPPLIER_CATEGORY_DATA_ITEM_KEY: string = "ID";
+const SUPPLIER_CATEGORY_idGetter = getter(SUPPLIER_CATEGORY_DATA_ITEM_KEY);
+// kendo grid utilities
+const ColumnMenuBuilder = (props) => {
+    return (
+        <div>
+            <GridColumnMenuSort {...props} />
+            <GridColumnMenuFilter {...props} expanded={true} />
+        </div>
+    );
+};
+interface MasterDataItem {
+    Id: number;
+    OperationType: string;
+    Name: string;
+    Description: string;
+    Notes: string;
+    IsActive: "Y" | "N";
+    Address: string;
+    Department: string;
+    Phone: string;
+    Email: string;
+    Title: string;
+    orgTypeId: number;
+}
+interface MasterDataPayload {
+    MasterDataType: string;
+    Items: MasterDataItem[];
+}
+const Options = [
+    "Organization Type",
+    "Organization",
+    "Supplier Category",
+    "Supplier Activity Authorized"
+];
+const isColumnActive = (field, dataState) => {
+    return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
+};
+type TableMaintenancePage = "category" | "errorCode" | "checklistType" | "categoryType" | "reasonCode" | "errorCode2" | "errorCode3" | "Organization Type" | "Organization" | "Supplier Category" | "Supplier Activity Authorized";
+const TableMaintenance: React.FC = () => {
+    const dispatch = useDispatch();
+    const [sortBy, setSortBy] = useState<SortByData>({
+        organization: 'custom',
+        organizationType: 'custom',
+        supplierCategory: 'custom',
+        supplierActivity: 'custom',
+    });
+    const [initialAdminSortBy, setInitialAdminSortBy] = useState<GetAdminSortByResponse>({
+        BusinessUnitId: 0,
+        DisciplineId: 0,
+        BuSystemMappingId: 0,
+        OrganizationTypeSortBy: "custom",
+        OrganizationSortBy: 'custom',
+        SupplierCategorySortBy: 'custom',
+        SupplierActivitySortBy: 'custom'
+    });
+    const [selectedOrgId, setSelectedOrgId] = useState<number>(1);
+    const [masterDataOptions, setMasterDataOptions] = useState<any[]>([]);
+    const [selectedPage, setSelectedPage] = useState<TableMaintenancePage>("Organization Type");
+    const [dirtyFlag, setDirtyFlag] = React.useState(false);
+    const [isItarAppFlag, setIsItarAppFlag] = React.useState(false);
+    const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
+    const [originalSupplierCategoryData, setOriginalSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
+    const [originalSupplierActivityData, setOriginalSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
+    const [originalOrganizationData, setOriginalOrganizationData] = useState<OrganizationTableData[]>([]);
+    const handlePageChange = async (event: SelectChangeEvent<TableMaintenancePage>): Promise<void> => {
+        var storageService = new StorageService();
+        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
+        if (!dirtyResponse) return;
+
+        if (dirtyFlag) {
+            if (selectedPage === 'Supplier Activity Authorized') fetchSupplierActivity();
+            else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
+            else if (selectedPage === 'Organization Type') fetchOrganizationType();
+            else if (selectedPage === 'Organization') fetchOrganization(selectedOrgId);
+        }
+
+        setDirtyFlag(false);
+        setSelectedPage(event.target.value as TableMaintenancePage);
+    };
+
+    // category type grid page
+    const [categoryTypeGridData, setCategoryTypeGridData] = useState<CategoryTypeTable[]>([]);
+
+
+
+   
+    // }
+
+    // checklistType states
+    const [organizationTypeData, setOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
+    const [disableChecklistTypePage, setDisableChecklistTypePage] = useState(false);
+    const [organizationTypeDataState, setOrganizationTypeDataState] = React.useState<State>({});
+    const [checklistTypeActiveItem, setChecklistTypeActiveItem] = useState<OrganizationTypeMasterTable | null>(null);
+    const [organizationData, setOrganizationData] = useState<OrganizationTableData[]>([]);
+    // Error code 1 states
+    const [supplierActivityData, setSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
+    const [supplierCategoryData, setSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
+    const [supplierCategoryDataState, setSupplierCategoryDataState] = useState<State>({});
+    const [organizationDataState, setOrganizationDataState] = useState<State>({});
+    const [errorCodeDeleteData, setErrorCodeDeleteData] = useState<SupplierActivityMasterTable[]>([]);
+    const [disableErrorCodePage, setDisableErrorCodePage] = useState(false);
+    const [selectedSupplierActivityState, setSelectedSupplierActivityState] = useState<{
+        [id: string]: boolean | number[];
+    }>({});
+    const [supplierActivityDataState, setSupplierActivityDataState] = React.useState<State>({});
+    const [errorCodeMasterActiveItem, setErrorCodeMasterActiveItem] = useState<SupplierActivityMasterTable | null>(null);
+    const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
+    const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
+
+    // Organization Type handlers
+    const CreateOrganizationType = () => {
+        const newOrganizatonType: OrganizationTypeMasterTable = {
+            ORGANIZATIONTYPEID: new Date().getTime(),
+            ORGANIZATIONTYPE: "",
+            newFlag: true,
+            SORT_ORDER: organizationTypeData.length + 1,
+            ISACTIVE: true
+        };
+
+        setOrganizationTypeData([newOrganizatonType, ...organizationTypeData]);
+        setDirtyFlag(true);
+
+    };
+    const organizationTypeColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, organizationTypeDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
+        };
+    };
+    const onOrganizationTypeDatastateChange = (event: GridDataStateChangeEvent) => {
+        setOrganizationTypeDataState(event.dataState);
+    };
+    const organizationTypeItemChange = async (event: GridItemChangeEvent) => {
+        let tempChickListType = [...organizationTypeData];
+        const match = tempChickListType.findIndex((i) => i.ORGANIZATIONTYPEID === event.dataItem.ORGANIZATIONTYPEID);
+
+        if (match !== -1 && event.field) {
+            tempChickListType[match] = event.dataItem;
+            setOrganizationTypeData(tempChickListType);
+            setDirtyFlag(true);
+        }
+    };
+    type OperationType = "add" | "update" | "delete";
+
+
+
+    const saveOrganizationType = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...organizationTypeData];
+        const original = [...originalOrganizationTypeData];
+
+        // Validation
+        if (current.some((i) => !i.ORGANIZATIONTYPE || i.ORGANIZATIONTYPE.trim() === "")) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
+            return;
+        }
+
+        const uniqueCount = new Set(
+            current.map((i) => i.ORGANIZATIONTYPE.trim().toLowerCase())
+        ).size;
+
+        if (uniqueCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Organization Types must be unique.",
+            }));
+            return;
+        }
+
+        // 🔥 Detect changed rows
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ORGANIZATIONTYPEID === row.ORGANIZATIONTYPEID);
+
+            // 🟢 NEW RECORD
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ORGANIZATIONTYPE.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Description: "",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+            // 🟡 MODIFIED RECORD
+            else if (
+                originalRow.ORGANIZATIONTYPE !== row.ORGANIZATIONTYPE ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ORGANIZATIONTYPEID,
+                    OperationType: "update",
+                    Name: row.ORGANIZATIONTYPE.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Description: "",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+        });
+
+        // 🚨 Nothing changed
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "OrganizationType",
+            Items: items,
+        };
+
+        console.log("Final Payload:", payload);
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            fetchOrganizationType();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Organization Type saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Organization Type.",
+            }));
+        }
+    };
+    const fetchOrganizationType = () => {
+        let masterdataType = 0;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
+                    ORGANIZATIONTYPEID: x.ORGANIZATIONTYPEID,
+                    ORGANIZATIONTYPE: x.ORGANIZATIONTYPE,
+                    SORT_ORDER: x.SORT_ORDER,
+                    ISACTIVE: x.ISACTIVE === "Y"
+                }));
+
+                setOrganizationTypeData([...result].reverse());
+                setOriginalOrganizationTypeData([...result].reverse()); // 🔥 store original copy
+            })
+            .catch((err) => console.error(err));
+    };
+    const organizationtypeDragStart = (dataItem: OrganizationTypeMasterTable) => {
+        setChecklistTypeActiveItem(dataItem);
+    };
+    const organizationTypeReorder = (dataItem: OrganizationTypeMasterTable) => {
+        if (checklistTypeActiveItem === dataItem) return;
+
+        let reorderData = [...organizationTypeData];
+        let prevIndex = reorderData.findIndex((p) => p === checklistTypeActiveItem);
+        let nextIndex = reorderData.findIndex((p) => p === dataItem);
+        reorderData.splice(prevIndex, 1);
+        reorderData.splice(nextIndex, 0, checklistTypeActiveItem || reorderData[0]);
+        let sorOrderIndex: number = 1;
+        reorderData.forEach((row) => {
+            row.SORT_ORDER = sorOrderIndex;
+            sorOrderIndex++;
+        });
+        setOrganizationTypeData(reorderData);
+        setDirtyFlag(true);
+    };
+    //organization handlers
+    function organizationDragStart(dataItem: OrganizationTableData) {
+        setOrganizationActiveItem(dataItem);
+    }
+    function organizationMasteReorder(dataItem: OrganizationTableData) {
+        if (selectedPage === "Organization") {
+            if (organizationActiveItem === dataItem) return;
+            let reorderData = [...organizationData];
+            let prevIndex = reorderData.findIndex((p) => p === organizationActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, organizationActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setOrganizationData(reorderData);
+        }
+
+        setDirtyFlag(true);
+    }
+    const organizationItemChange = async (event: GridItemChangeEvent) => {
+        let tempOrg = [...organizationData];
+        const match = tempOrg.findIndex((i) => i.ORGANIZATIONID === event.dataItem.ID);
+
+        if (match !== -1 && event.field) {
+            tempOrg[match] = event.dataItem;
+            setOrganizationData(tempOrg);
+            setDirtyFlag(true);
+        }
+    };
+    const CreateOrganization = () => {
+        const newOrganization: OrganizationTableData = {
+            ORGANIZATIONID: new Date().getTime(),
+            newFlag: true,
+            SORT_ORDER: organizationData.length + 1,
+            NOTES: "",
+            ORGANIZATIONNAME: "",
+            ORGANIZATIONDESCRIPTION: "",
+            ISACTIVE: true,
+
+        };
+        setOrganizationData([newOrganization, ...organizationData]);
+        setDirtyFlag(true);
+
+    };
+    const saveOrganization = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...organizationData];
+        const original = [...originalOrganizationData];
+        console.log(current, 'current');
+
+        // if (
+        //     current.some(
+        //         (i) =>
+        //             !i.ORGANIZATIONNAME ||
+        //             i.ORGANIZATIONNAME.trim() === ""
+        //     )
+        // ) {
+        //     dispatch(showSnackbar({
+        //         snackbarOpen: true,
+        //         snackbarType: "error",
+        //         snackbarMessage: "Please fill details.",
+        //     }));
+        //     return;
+        // }
+
+        // const uniqueCombinationCount = new Set(
+        //     current.map(
+        //         (i) =>
+        //             `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION.trim().toLowerCase()}`
+        //     )
+        // ).size;
+
+        // if (uniqueCombinationCount !== current.length) {
+        //     dispatch(showSnackbar({
+        //         snackbarOpen: true,
+        //         snackbarType: "error",
+        //         snackbarMessage:
+        //             "Organization Name + MOA Number must be unique.",
+        //     }));
+        //     return;
+        // }
+
+        // 🔥 DETECT CHANGES
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ORGANIZATIONNAME.trim(),
+                    Description: row.ORGANIZATIONDESCRIPTION.trim(),
+                    Notes: row.NOTES?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:selectedOrgId
+                });
+            }
+            else if (
+                originalRow.ORGANIZATIONID !== row.ORGANIZATIONID ||
+                originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
+                originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
+                originalRow.NOTES !== row.NOTES ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ORGANIZATIONID,
+                    OperationType: "update",
+                    Name: row.ORGANIZATIONNAME.trim(),
+                    Description: row?.ORGANIZATIONDESCRIPTION?.trim() ?? "",
+                    Notes: row.NOTES?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+       const payload: MasterDataPayload = {
+            MasterDataType: "Organization",
+            Items: items,
+        };
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            fetchOrganization(selectedOrgId);
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Organization saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Organization.",
+            }));
+        }
+    };
+    const fetchOrganization = (orgTypeId: number) => {
+        let masterdataType = 1;
+        EasaListService.getAdminMasterDetailsOrgType(masterdataType, orgTypeId)
+            .then((response) => {
+                let result: OrganizationTableData[] = response?.data.map(org => ({
+                    ID: org.ORGANIZATIONID,
+                    ORGANIZATIONNAME: org.ORGANIZATIONNAME,
+                    ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
+                    NOTES: org.NOTES,
+                    SORT_ORDER: org.SORT_ORDER,
+                    ISACTIVE: org.ISACTIVE === "Y"
+                }));
+                setOrganizationData([...result].reverse());
+                setOriginalOrganizationData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    const onOrganizationDatastateChange = (event: GridDataStateChangeEvent) => {
+        setOrganizationDataState(event.dataState)
+    };
+    const OrganizationColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
+        };
+    };
+    // Supplier Activity handlers
+    const CreateSupplierActivity = () => {
+        const newSupplierActivity: SupplierActivityMasterTable = {
+            ID: new Date().getTime(),
+            ACTIVITYDESCRIPTION: "",
+            ACTIVITYCATEGORY: "",
+            newFlag: true,
+            SORT_ORDER: supplierActivityData.length + 1,
+            ISACTIVE: true,
+        };
+        setSupplierActivityData([newSupplierActivity, ...supplierActivityData]);
+        setDirtyFlag(true);
+    };
+    const supplierActivityColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, supplierActivityDataState) ? "active kgrid-oss-admin-table-errorCode1-header" : "kgrid-oss-admin-table-errorCode1-header",
+        };
+    };
+    const onSupplierActivityDataStateChange = (event: GridDataStateChangeEvent) => {
+        setSupplierActivityDataState(event.dataState);
+    };
+    const supplierActivityItemChange = async (event: GridItemChangeEvent) => {
+        let tempErrorCodes = [...supplierActivityData];
+        const match = tempErrorCodes.findIndex((i) => i.ID === event.dataItem.ID);
+
+        if (match !== -1 && event.field) {
+            tempErrorCodes[match] = event.dataItem;
+
+            setSupplierActivityData(tempErrorCodes);
+            setDirtyFlag(true);
+        }
+    };
+    const onSaveSupplierActivity = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...supplierActivityData];
+        const original = [...originalSupplierActivityData];
+
+        // Validation
+        console.log(current, supplierActivityData, 'current');
+        // 1️⃣ Empty validation (both fields)
+        if (
+            current.some(
+                (i) =>
+                    !i.ACTIVITYCATEGORY ||
+                    i.ACTIVITYCATEGORY.trim() === "" ||
+                    !i.ACTIVITYDESCRIPTION ||
+                    i.ACTIVITYDESCRIPTION.trim() === ""
+            )
+        ) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Please fill details.",
+                })
+            );
+            return;
+        }
+
+        const uniqueCombinationCount = new Set(
+            current.map(
+                (i) =>
+                    `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
+            )
+        ).size;
+
+        if (uniqueCombinationCount !== current.length) {
+            dispatch(
+                showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage:
+                        "Activity Category + Description  must be unique.",
+                })
+            );
+            return;
+        }
+
+        // 🔥 Detect changes
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.ID === row.ID);
+
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: row.ACTIVITYCATEGORY.trim(),
+                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+            // 🟡 Updated
+            else if (
+                originalRow.ACTIVITYCATEGORY !== row.ACTIVITYCATEGORY ||
+                originalRow.ACTIVITYDESCRIPTION !== row.ACTIVITYDESCRIPTION ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.ID,
+                    OperationType: "update",
+                    Name: row.ACTIVITYCATEGORY.trim(),
+                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "SupplierActivityAuthorised",
+            Items: items,
+        };
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            fetchSupplierActivity();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Supplier Activity saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Supplier Activity.",
+            }));
+        }
+    };
+    const fetchSupplierActivity = () => {
+        let masterdataType = 3;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: SupplierActivityMasterTable[] = response?.data.map(x => ({
+                    ID: x.ID,
+                    ACTIVITYCATEGORY: x.ACTIVITYCATEGORY,
+                    ACTIVITYDESCRIPTION: x.ACTIVITYDESCRIPTION,
+                    ISACTIVE: x.ISACTIVE === "Y"
+                }));
+
+                setSupplierActivityData([...result].reverse());
+                setOriginalSupplierActivityData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    function supplierActivityMasterTableDragStart(dataItem: SupplierActivityMasterTable) {
+        setErrorCodeMasterActiveItem(dataItem);
+    }
+    function supplierActivityMastereorder(dataItem: SupplierActivityMasterTable) {
+        if (selectedPage === "Supplier Activity Authorized") {
+            if (errorCodeMasterActiveItem === dataItem) return;
+            let reorderData = [...supplierActivityData];
+            let prevIndex = reorderData.findIndex((p) => p === errorCodeMasterActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, errorCodeMasterActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setSupplierActivityData(reorderData);
+        }
+        setDirtyFlag(true);
+    }
+
+    //supplier category Handles
+    function supplierCategoryMasterTableDragStart(dataItem: SupplierCategoryMasterTable) {
+        setSupplierCategoryActiveItem(dataItem);
+    }
+    function supplierCategoryMasterReorder(dataItem: SupplierCategoryMasterTable) {
+        if (selectedPage === "Supplier Category") {
+            if (supplierCategoryActiveItem === dataItem) return;
+            let reorderData = [...supplierCategoryData];
+            let prevIndex = reorderData.findIndex((p) => p === supplierCategoryActiveItem);
+            let nextIndex = reorderData.findIndex((p) => p === dataItem);
+            reorderData.splice(prevIndex, 1);
+            reorderData.splice(nextIndex, 0, supplierCategoryActiveItem || reorderData[0]);
+            let sorOrderIndex: number = 1;
+            reorderData.forEach((row) => {
+                row.SORT_ORDER = sorOrderIndex;
+                sorOrderIndex++;
+            });
+            setSupplierCategoryData(reorderData);
+        }
+
+        setDirtyFlag(true);
+    }
+    const supplierCategoryTypeItemChange = async (event: GridItemChangeEvent) => {
+        let tempSupplierCategoryType = [...supplierCategoryData];
+        const match = tempSupplierCategoryType.findIndex((i) => i.CATEGORYID === event.dataItem.CATEGORYID);
+
+        if (match !== -1 && event.field) {
+            tempSupplierCategoryType[match] = event.dataItem;
+            setSupplierCategoryData(tempSupplierCategoryType);
+            setDirtyFlag(true);
+        }
+    };
+    const CreateSupplierCategory = () => {
+        const newSupplierCategory: SupplierCategoryMasterTable = {
+            CATEGORYID: new Date().getTime(),
+            CATEGORYDESCRIPTION: "",
+            newFlag: true,
+            SORT_ORDER: supplierActivityData.length + 1,
+            ISACTIVE: true,
+
+        };
+        setSupplierCategoryData([newSupplierCategory, ...supplierCategoryData]);
+        setDirtyFlag(true);
+
+    };
+    const saveSupplierCategory = async () => {
+        if (!dirtyFlag) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No data to save.",
+            }));
+            return;
+        }
+
+        const current = [...supplierCategoryData];
+        const original = [...originalSupplierCategoryData];
+
+        // Validation
+        if (current.some((i) => !i.CATEGORYDESCRIPTION || i.CATEGORYDESCRIPTION.trim() === "")) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Please fill details.",
+            }));
+            return;
+        }
+
+        const uniqueCount = new Set(
+            current.map((i) => i.CATEGORYDESCRIPTION.trim().toLowerCase())
+        ).size;
+
+        if (uniqueCount !== current.length) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Supplier Type must be unique.",
+            }));
+            return;
+        }
+
+        // 🔥 Detect changes
+        const items: MasterDataItem[] = [];
+
+        current.forEach((row) => {
+            const originalRow = original.find(o => o.CATEGORYID === row.CATEGORYID);
+
+            // 🟢 New row
+            if (!originalRow) {
+                items.push({
+                    Id: 0,
+                    OperationType: "add",
+                    Name: "",
+                    Description: row.CATEGORYDESCRIPTION.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+            // 🟡 Updated row
+            else if (
+                originalRow.CATEGORYDESCRIPTION !== row.CATEGORYDESCRIPTION ||
+                originalRow.ISACTIVE !== row.ISACTIVE ||
+                originalRow.SORT_ORDER !== row.SORT_ORDER
+            ) {
+                items.push({
+                    Id: row.CATEGORYID,
+                    OperationType: "update",
+                    Name: "",
+                    Description: row.CATEGORYDESCRIPTION.trim(),
+                    IsActive: row.ISACTIVE ? "Y" : "N",
+                    Notes: "",
+                    Address: "",
+                    Department: "",
+                    Phone: "",
+                    Email: "",
+                    Title: "",
+                    orgTypeId:0
+                });
+            }
+        });
+
+        if (items.length === 0) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "No changes detected.",
+            }));
+            return;
+        }
+
+        const payload: MasterDataPayload = {
+            MasterDataType: "SupplierCategory",
+            Items: items,
+        };
+
+        try {
+            await EasaListService.addMasterDataType(payload);
+
+            setDirtyFlag(false);
+            fetchSupplierCategory();
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Supplier Category saved successfully.",
+            }));
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Supplier Category.",
+            }));
+        }
+    };
+    const fetchSupplierCategory = () => {
+        let masterdataType = 2;
+        EasaListService.getAdminMasterDetailsType(masterdataType)
+            .then((response) => {
+                let result: SupplierCategoryMasterTable[] = response?.data.map(category => ({
+                    CATEGORYID: category.CATEGORYID,
+                    CATEGORYDESCRIPTION: category.CATEGORYDESCRIPTION,
+                    ISACTIVE: category.ISACTIVE === "Y",
+                }));
+                setSupplierCategoryData([...result].reverse());
+                setOriginalSupplierCategoryData([...result].reverse());
+            })
+            .catch((err) => console.error(err));
+    };
+    const onSupplierCategoryDatastateChange = (event: GridDataStateChangeEvent) => {
+        setSupplierCategoryDataState(event.dataState)
+    };
+    const supplierCategoryColumnPropsBuilder = (field) => {
+        return {
+            field: field,
+            columnMenu: ColumnMenuBuilder,
+            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
+        };
+    };
+    //sorting functionality
+    const handleSortByChange = (key: keyof SortByData, value: 'custom' | 'asc' | 'desc', setScreenDirty: boolean = true) => {
+        if (key === 'organization') {
+            let ascCategoryData: CategoryTypeTable[] = [...categoryTypeGridData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascCategoryData = _.orderBy(ascCategoryData, ["CategoryType"], [value]);
+
+                let i = 1;
+                ascCategoryData = ascCategoryData.map(x => ({ ...x, Sorting: i++ }));
+                setCategoryTypeGridData(ascCategoryData);
+            }
+        }
+
+        if (key === 'organizationType') {
+            let ascChecklistData: OrganizationTypeMasterTable[] = [...organizationTypeData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascChecklistData = _.orderBy(ascChecklistData, ["ORGANIZATIONTYPE"], [value]);
+
+                let i = 1;
+                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setOrganizationTypeData(ascChecklistData);
+            }
+        }
+
+        if (key === 'supplierCategory') {
+            let ascChecklistData: SupplierCategoryMasterTable[] = [...supplierCategoryData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascChecklistData = _.orderBy(ascChecklistData, ["CATEGORYDESCRIPTION"], [value]);
+
+                let i = 1;
+                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setSupplierCategoryData(ascChecklistData);
+            }
+        }
+
+        if (key === 'supplierActivity') {
+            let ascErrorCodeData: SupplierActivityMasterTable[] = [...supplierActivityData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["ACTIVITYCATEGORY"], [value]);
+
+                let i = 1;
+                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setSupplierActivityData(ascErrorCodeData);
+            }
+        }
+
+        setSortBy({ ...sortBy, [key]: value });
+        if (setScreenDirty) {
+            setDirtyFlag(true);
+        }
+    }
+
+    //Handle fetching Register Types Asynchronously
+    const fetchMasterDataTypes = async () => {
+        const result = await EasaListService.getAdminMasterData();
+        const data = result?.data ?? [];
+        setMasterDataOptions(data);
+
+        console.log(result, data, 'data');
+    };
+    const handleOrg = (event) => {
+        const orgTypeId = event.target.value;
+        setSelectedOrgId(orgTypeId);
+        fetchOrganization(orgTypeId);
+    }
+    useEffect(() => {
+        if (selectedOrgId) {
+            fetchOrganization(selectedOrgId);
+        }
+    }, [selectedOrgId])
+    useEffect(() => {
+        var storageService = new StorageService();
+        let isItarApp = storageService.getIsItarApp();
+        setIsItarAppFlag(isItarApp == "Y" ? true : false);
+        fetchOrganizationType();
+        fetchSupplierCategory();
+        fetchSupplierActivity();
+    }, []);
+    React.useEffect(() => {
+        const reversed = [...organizationTypeData].reverse();
+        if (!selectedOrgId && reversed.length > 0) {
+            setSelectedOrgId(reversed[0].ORGANIZATIONTYPEID as any);
+        }
+    }, [organizationTypeData, selectedOrgId]);
+    useEffect(() => {
+        const storageService = new StorageService();
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, dirtyFlag);
+
+        return () => {
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+        };
+    }, [dirtyFlag]);
+    useEffect(() => {
+        fetchMasterDataTypes();
+    }, []);
+    console.log(organizationTypeData, supplierCategoryData, supplierActivityData, 'organizationTypeData');
+    return (
+        <div className="FPQDetails-Admin-table-maintenance">
+            <div className="FPQDetails-Admin-table-maintenance-topbar">
+                <div>Master Data</div>
+                <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedPage} onChange={handlePageChange} size="medium">
+                    {Options.map((item) => (
+                        <MenuItem
+                            key={item}
+                            value={item}
+                            className="text-normal"
+                        >
+                            {item}
+                        </MenuItem>
+                    ))}
+                </Select>
+                {selectedPage === "Organization" && (
+                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
+                        Organization Type
+                        <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedOrgId} onChange={handleOrg} size="medium"
+                            MenuProps={{
+                                PaperProps: {
+                                    sx: {
+                                        height: 170,
+                                        overflowY: "auto"
+                                    }
+                                }
+                            }}
+                        >{([...organizationTypeData]
+                            .filter(item => item.ISACTIVE === true)   
+                            .reverse()
+                        ).map(item => (
+                            <MenuItem
+                                key={item.ORGANIZATIONTYPEID}
+                                value={item.ORGANIZATIONTYPEID}
+                                className="text-normal"
+                            >
+                                {item.ORGANIZATIONTYPE}
+                            </MenuItem>
+                        ))}
+                        </Select>
+                    </div>
+                )}
+            </div>
+
+            <div className="FPQDetails-Admin-table-maintenance-section">
+                {selectedPage === "Supplier Category" && (
+                    <>
+                        <SupplierCategoryTable
+                            key="kgrid-oss-admin-table-checklistType-comp"
+                            columnPropsBuilder={supplierCategoryColumnPropsBuilder}
+                            KEY={SUPPLIER_CATEGORY_DATA_ITEM_KEY}
+                            supplierCategoryData={supplierCategoryData}
+                            dataState={supplierCategoryDataState}
+                            dataStateChange={onSupplierCategoryDatastateChange}
+                            itemChange={supplierCategoryTypeItemChange}
+                            createSupplierCategory={CreateSupplierCategory}
+                            saveSupplierCategory={saveSupplierCategory}
+                            dragStart={supplierCategoryMasterTableDragStart}
+                            reorder={supplierCategoryMasterReorder}
+                            sortBy={sortBy.supplierCategory}
+                            handleSortByChange={handleSortByChange}
+                        />
+                    </>
+                )}
+
+                {
+                    selectedPage === "Organization" && (
+                        <OrganizationTable
+                            key="kgrid-oss-admin-table-errorCode-comp-1"
+                            KEY={ORGANIZATION_DATA_ITEM_KEY}
+                            columnPropsBuilder={OrganizationColumnPropsBuilder}
+                            organizationData={organizationData}
+                            dataState={organizationDataState}
+                            dataStateChange={onOrganizationDatastateChange}
+                            itemChange={organizationItemChange}
+                            createOrganization={CreateOrganization}
+                            saveOrganization={saveOrganization}
+                            dragStart={organizationDragStart}
+                            reorder={organizationMasteReorder}
+                            sortBy={sortBy.supplierActivity}
+                            handleSortByChange={handleSortByChange}
+                        />
+                    )
+                }
+
+                {selectedPage === "Organization Type" && (
+                    <OrganizationTypeTable
+                        key="kgrid-oss-admin-table-checklistType-comp"
+                        KEY={ORGANIZATION_TYPE_DATA_ITEM_KEY}
+                        columnPropsBuilder={organizationTypeColumnPropsBuilder}
+                        organizationTypeData={organizationTypeData}
+                        dataState={organizationTypeDataState}
+                        dataStateChange={onOrganizationTypeDatastateChange}
+                        itemChange={organizationTypeItemChange}
+                        createOrganizationType={CreateOrganizationType}
+                        saveOrganizationType={saveOrganizationType}
+                        dragStart={organizationtypeDragStart}
+                        reorder={organizationTypeReorder}
+                        sortBy={sortBy.organizationType}
+                        handleSortByChange={handleSortByChange}
+                    />
+                )}
+
+                {selectedPage === "Supplier Activity Authorized" && (
+                    <SupplierActivityTable
+                        key="kgrid-oss-admin-table-errorCode-comp-1"
+                        KEY={SUPPLIER_ACTIVITY_DATA_ITEM_KEY}
+                        columnPropsBuilder={supplierActivityColumnPropsBuilder}
+                        supplierActivityData={supplierActivityData}
+                        dataState={supplierActivityDataState}
+                        dataStateChange={onSupplierActivityDataStateChange}
+                        itemChange={supplierActivityItemChange}
+                        createSupplierActivity={CreateSupplierActivity}
+                        saveSupplierActivity={onSaveSupplierActivity}
+                        dragStart={supplierActivityMasterTableDragStart}
+                        reorder={supplierActivityMastereorder}
+                        sortBy={sortBy.supplierActivity}
+                        handleSortByChange={handleSortByChange}
+                    />
+                )}
+
+
+
+            </div>
+        </div>
+    );
+};
+
+export default TableMaintenance;
+
+const modalStyle = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 500,
+    bgcolor: "background.paper",
+    boxShadow: 24,
+    borderRadius: "0.5rem",
+    padding: "24px",
+};
+
+const objectsEqual = (o1: any, o2: any) => (typeof o1 === "object" && Object.keys(o1).length > 0 ? Object.keys(o1).length === Object.keys(o2).length && Object.keys(o1).every((p) => objectsEqual(o1[p], o2[p])) : o1 === o2);
+
+const arraysEqual = (a1: Array<any>, a2: Array<any>) => a1.length === a2.length && a1.every((o, idx) => objectsEqual(o, a2[idx]));
