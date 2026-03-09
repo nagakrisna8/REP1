@@ -1,0 +1,174 @@
+import React, { memo, useEffect, useState } from "react";
+import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
+import { State, process } from "@progress/kendo-data-query";
+import EasaListService from "../../EasaRegisterListService";
+import { Button, TextField } from "@mui/material";
+import "./FocalForm.scss";
+
+const AnyGrid = DataGrid as any;
+
+interface FocalData {
+    NAME: string;
+    ADDRESS: string;
+    PHONE: number;
+    DEPARTMENT: string;
+    EMAIL: string;
+}
+
+interface FocalListProps {
+    orgName?: string;
+}
+
+const focalCache: { [key: string]: FocalData[] } = {};
+
+const FocalForm: React.FC<FocalListProps> = memo(() => {
+
+    const [focalListData, setFocalListData] = useState<FocalData[]>([]);
+    const [dataState, setDataState] = useState<State>({});
+
+    const [formData, setFormData] = useState({
+        name: "",
+        address: "",
+        phone: "",
+        email: "",
+        position: "",
+        title: ""
+    });
+
+    const fetchFocalList = async (organization: string) => {
+
+        if (focalCache[organization]) {
+            setFocalListData(focalCache[organization]);
+            return;
+        }
+
+        const masterdataType = 4;
+
+        try {
+            const response =
+                await EasaListService.getAdminMasterDetailsTypeFocalsList(
+                    masterdataType,
+                    organization
+                );
+
+            const result: FocalData[] = response?.data.map((x: any) => ({
+                NAME: x.NAME,
+                ADDRESS: x.ADDRESS,
+                PHONE: x.PHONE,
+                DEPARTMENT: x.DEPARTMENT,
+                EMAIL: x.EMAIL
+            }));
+
+            focalCache[organization] = result;
+            setFocalListData(result);
+
+        } catch (error) {
+            console.error("Error fetching focal list:", error);
+        }
+    };
+
+
+
+    const handleChange = (e: any) => {
+        setFormData({
+            ...formData,
+            [e.target.name]: e.target.value
+        });
+    };
+
+    const handleSave = () => {
+        console.log("Save Focal:", formData);
+    };
+
+    const handleCancel = () => {
+        setFormData({
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: ""
+        });
+    };
+
+    return (
+        <div className="focal-container">
+
+            {/* Add Focal Form */}
+            <div className="focal-form">
+
+                <div className="form-header">
+                    Add Focal
+                </div>
+
+                <div className="form-grid">
+
+                    <TextField
+                        label="Focal Name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleChange}
+                        size="small"
+                    />
+
+                    <TextField
+                        label="Phone No"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        size="small"
+                    />
+
+                    <TextField
+                        label="Address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleChange}
+                        size="small"
+                    />
+
+                    <TextField
+                        label="Email"
+                        name="email"
+                        value={formData.email}
+                        onChange={handleChange}
+                        size="small"
+                    />
+
+                    <TextField
+                        label="Position"
+                        name="position"
+                        value={formData.position}
+                        onChange={handleChange}
+                        size="small"
+                    />
+
+                    <TextField
+                        label="Title"
+                        name="title"
+                        value={formData.title}
+                        onChange={handleChange}
+                        size="small"
+                    />
+
+                </div>
+                <div className="form-actions">
+
+
+                    <Button variant="contained" onClick={handleSave}>
+                        Save
+                    </Button>
+                </div>
+
+            </div>
+
+
+
+
+        </div>
+    );
+});
+
+export default FocalForm;
+
+
