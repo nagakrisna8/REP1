@@ -1,223 +1,346 @@
-import React, { memo, useEffect, useState } from "react";
-import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
+import "../AdminTable.scss";
+import React, { memo, useCallback, useRef } from "react";
+import { FocalMasterTable, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
-import EasaListService from "../../EasaRegisterListService";
-import { Button, TextField } from "@mui/material";
-import "./FocalList.scss";
+import {
+    Grid as DataGrid,
+    GridCellProps,
+    GridColumn,
+    GridColumnMenuFilter,
+    GridColumnMenuProps,
+    GridDataStateChangeEvent,
+    GridItemChangeEvent,
+    GridToolbar
+} from "@progress/kendo-react-grid";
 
+import {
+    Box,
+    Button,
+    Card,
+    FormControl,
+    MenuItem,
+    Select,
+    TextField,
+    Typography
+} from "@mui/material";
+
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import SortIcon from "@mui/icons-material/Sort";
+import GroupIcon from "@mui/icons-material/Group";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+
+import { filterIcon } from "@progress/kendo-svg-icons";
+import FocalForm from "../Focal/FocalForm";
+
+const editField = "inEdit";
+const SELECTED_FIELD = "selected";
 const AnyGrid = DataGrid as any;
 
-interface FocalData {
-  NAME: string;
-  ADDRESS: string;
-  PHONE: number;
-  DEPARTMENT: string;
-  EMAIL: string;
-}
-
-interface FocalListProps {
-  orgName: string;
-}
-
-const focalCache: { [key: string]: FocalData[] } = {};
-
-const FocalList: React.FC<FocalListProps> = memo(({ orgName }) => {
-
-  const [focalListData, setFocalListData] = useState<FocalData[]>([]);
-  const [dataState, setDataState] = useState<State>({});
-
-  const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    phone: "",
-    email: "",
-    position: "",
-    title: ""
-  });
-
-  const fetchFocalList = async (organization: string) => {
-
-    if (focalCache[organization]) {
-      setFocalListData(focalCache[organization]);
-      return;
-    }
-
-    const masterdataType = 4;
-
-    try {
-      const response =
-        await EasaListService.getAdminMasterDetailsTypeFocalsList(
-          masterdataType,
-          organization
-        );
-
-      const result: FocalData[] = response?.data.map((x: any) => ({
-        NAME: x.NAME,
-        ADDRESS: x.ADDRESS,
-        PHONE: x.PHONE,
-        DEPARTMENT: x.DEPARTMENT,
-        EMAIL: x.EMAIL
-      }));
-
-      focalCache[organization] = result;
-      setFocalListData(result);
-
-    } catch (error) {
-      console.error("Error fetching focal list:", error);
-    }
-  };
-
-  useEffect(() => {
-    if (!orgName) return;
-    fetchFocalList(orgName);
-  }, [orgName]);
-
-  const handleChange = (e: any) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-  };
-
-  const handleSave = () => {
-    console.log("Save Focal:", formData);
-  };
-
-  const handleCancel = () => {
-    setFormData({
-      name: "",
-      address: "",
-      phone: "",
-      email: "",
-      position: "",
-      title: ""
-    });
-  };
-
-  return (
-    <div className="focal-container">
-
-      {/* Add Focal Form */}
-      <div className="focal-form">
-
-        <div className="form-header">
-          Add Focal
-        </div>
-
-        <div className="form-grid">
-
-          <TextField
-            label="Focal Name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            size="small"
-          />
-
-          <TextField
-            label="Phone No"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            size="small"
-          />
-
-          <TextField
-            label="Address"
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            size="small"
-          />
-
-          <TextField
-            label="Email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            size="small"
-          />
-
-          <TextField
-            label="Position"
-            name="position"
-            value={formData.position}
-            onChange={handleChange}
-            size="small"
-          />
-
-          <TextField
-            label="Title"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            size="small"
-          />
-
-        </div>
-
-        <div className="form-actions">
-          <Button variant="outlined" onClick={handleCancel}>
-            Cancel
-          </Button>
-
-          <Button variant="contained" onClick={handleSave}>
-            Save
-          </Button>
-        </div>
-
-      </div>
-
-      {/* Focal List Grid */}
-
-      <div className="focal-header">
-        <span className="focal-title">List of Focals</span>
-      </div>
-
-      <AnyGrid
-        className="focal-grid"
-        data={process(focalListData, dataState)}
-        {...dataState}
-        onDataStateChange={(e: any) => setDataState(e.dataState)}
-      >
-        <GridColumn field="NAME" title="Focal Names" width="200px" />
-        <GridColumn field="ADDRESS" title="Address" width="300px" />
-        <GridColumn field="PHONE" title="Phone" width="160px" />
-        <GridColumn field="DEPARTMENT" title="Department" width="180px" />
-        <GridColumn field="EMAIL" title="Email" width="200px" />
-      </AnyGrid>
-
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
+    <div>
+        <GridColumnMenuFilter {...props} expanded />
     </div>
-  );
+);
+interface FocalTableProps {
+    KEY: string;
+    columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
+    focalData: FocalMasterTable[];
+    dataState: State;
+    dataStateChange: (event: GridDataStateChangeEvent) => void;
+    itemChange: (event: GridItemChangeEvent) => void;
+    createFocal: () => void;
+    saveFocal: () => void;
+    dragStart: (dataItem: FocalMasterTable) => void;
+    reorder: (dataItem: FocalMasterTable) => void;
+    sortBy: "custom" | "asc" | "desc" | undefined;
+    handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
+}
+
+const FocalTable: React.FC<any> = memo((props) => {
+
+    const gridRefBuilder = useRef<any>(null);
+
+    // expansion state
+    const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
+
+    const expandChange = (dataItem: any) => {
+
+        const key = dataItem.ORGANIZATIONID;
+
+        setDetailExpand(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
+    const gridData = process(props.focalData, props.dataState).data;
+
+    const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
+        (cellProps) => {
+
+            const field = cellProps.field || "";
+            const value = cellProps.dataItem[field] ?? "";
+
+            const handleChange = (e: any) => {
+
+                const updated = { ...cellProps.dataItem };
+                updated[field] = e.target.value;
+
+                cellProps.onChange?.({
+                    dataIndex: cellProps.dataIndex,
+                    dataItem: updated,
+                    field,
+                    syntheticEvent: e,
+                    value: e.target.value
+                });
+            };
+
+            return (
+                <td>
+                    <TextField fullWidth value={value} onChange={handleChange} />
+                </td>
+            );
+        },
+        []
+    );
+
+    const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => (
+        <td
+            onDragOver={(e) => {
+                e.preventDefault();
+                props.reorder(dragcellprops.dataItem);
+            }}
+        >
+            <span
+                draggable
+                style={{
+                    cursor: "move",
+                    display: "flex",
+                    justifyContent: "center"
+                }}
+                onDragStart={() => props.dragStart(dragcellprops.dataItem)}
+            >
+                <SortIcon />
+            </span>
+        </td>
+    );
+
+    // Custom arrow column
+    const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+
+        const expanded = detailExpand[cellProps.dataItem.ORGANIZATIONID];
+
+        const toggle = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            expandChange(cellProps.dataItem);
+        };
+
+        return (
+            <td>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <GroupIcon />
+
+                    <span
+                        onClick={toggle}
+                        style={{ cursor: "pointer", display: "flex" }}
+                    >
+                        {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+                    </span>
+                </div>
+            </td>
+        );
+    };
+
+    const DetailComponent = (detailProps: any) => {
+
+        // const orgName = detailProps.dataItem.ORGANIZATIONNAME;
+
+        return (
+            <div>
+                <FocalForm />
+            </div>
+        );
+    };
+    const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+        const dataItem = cellProps.dataItem;
+
+        const handleChange = (e: any) => {
+            const updated = {
+                ...dataItem,
+                ISACTIVE: e.target.checked
+            };
+
+            cellProps.onChange?.({
+                dataIndex: cellProps.dataIndex,
+                dataItem: updated,
+                field: cellProps.field,
+                syntheticEvent: {} as React.SyntheticEvent,
+                value: e.target.checked
+            });
+        };
+
+        return (
+            <td>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                    <input
+                        type="checkbox"
+                        checked={dataItem.ISACTIVE}
+                        onChange={handleChange}
+                    />
+                </div>
+            </td>
+        );
+    };
+
+
+    return (
+        <div style={{ paddingBottom: 20 }}>
+
+            <Card style={{ borderLeft: "4px solid #0033A1", marginLeft: 22 }}>
+
+                <AnyGrid
+                    ref={gridRefBuilder}
+                    className="org-grid-compact"
+                    style={{ height: "80vh" }}
+                    data={gridData}
+                    dataItemKey="ORGANIZATIONID"
+                    resizable
+                    editField={editField}
+                    {...props.dataState}
+                    selectedField={SELECTED_FIELD}
+                    onDataStateChange={props.dataStateChange}
+                    onItemChange={props.itemChange}
+                    columnMenuIcon={filterIcon}
+                    detail={DetailComponent}
+                    detailExpand={detailExpand}
+                >
+
+                    <GridToolbar key="grid-toolbar">
+                        {
+                            <Button
+                                className="easalist-marginLeft10"
+                                id="createBtn"
+                                title="Create New"
+                                onClick={props.createOrganization}
+                                size={"small"}
+                                color={"inherit"}
+                                variant={"outlined"}
+
+                            >
+                                <AddCircleOutlineIcon className="iconClass" />
+                                <Typography
+                                    variant={"button"}
+                                    sx={{ textTransform: "none", fontSize: "14px" }}
+                                >
+                                    Create New
+                                </Typography>
+                            </Button>
+                        }
+                          {
+                                      < Button
+                                        className="easalist-marginLeft10"
+                                        id="deleteBtn"
+                                        title="Delete"
+                                        onClick={props.saveFocal}
+                                        variant={"outlined"}
+                                        size={"small"}
+                                        color={"inherit"}
+                                      >
+                                        <Typography
+                                          variant={"button"}
+                                          sx={{ textTransform: "none", fontSize: "14px" }}
+                                        >
+                                          Save
+                                        </Typography>
+                                      </Button >
+                                    }
+                        {
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.5,
+                                    position: "absolute",
+                                    right: 20,
+                                }}
+                            >
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        color: "#253746",
+                                        fontWeight: 500,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    Sort Order :
+                                </Typography>
+                                <FormControl variant="outlined">
+                                    <Select
+                                        id="register-type-select-dropdown"
+                                        className="text-normal"
+                                        style={{
+                                            width: "200px",
+                                            height: "32px",
+                                            fontSize: "14px",
+                                            color: "#253746",
+                                        }}
+                                        value={props.sortBy || "custom"}
+                                        onChange={(e) =>
+                                            props.handleSortByChange(
+                                                "focal",
+                                                e.target.value as "custom" | "asc" | "desc"
+                                            )
+                                        }
+                                    >
+                                        <MenuItem value="custom">
+                                            <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Customize
+                                        </MenuItem>
+                                        <MenuItem value="asc">
+                                            <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Focal Management: Ascending
+                                        </MenuItem>
+                                        <MenuItem value="desc">
+                                            <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Focal Management : Descending
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        }
+                    </GridToolbar >
+                    <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
+                    <GridColumn
+                        {...props.columnPropsBuilder("NAME")}
+                        title="Focal Name"
+                        cells={{ data: OrganizationCell }}
+                        width="360px"
+                    />
+                    <GridColumn
+                        {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")}
+                        title="Focal Information"
+                        cells={{ data: OrganizationCell }}
+                        width="480px"
+                    />
+                    <GridColumn
+                        {...props.columnPropsBuilder("ISACTIVE")}
+                        title="Active"
+                        cells={{ data: activeCheckbox }}
+                        width="90px"
+                    />
+                    <GridColumn
+                        title="Focals"
+                        cells={{ data: ContactFocals }}
+                        width="150px"
+                    />
+                </AnyGrid>
+            </Card>
+        </div>
+    );
 });
 
-export default FocalList;
-
-
-
-.focal-form {
-  border: 1px solid #ddd;
-  padding: 16px;
-  margin-bottom: 20px;
-  background: #fafafa;
-}
-
-.form-header {
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px 20px;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 16px;
-}
-
-
+export default FocalTable;
