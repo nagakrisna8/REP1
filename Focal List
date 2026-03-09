@@ -1,0 +1,94 @@
+import React, { memo, useEffect, useState, useRef } from "react";
+import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
+import { State, process } from "@progress/kendo-data-query";
+import EasaListService from "../../EasaRegisterListService";
+import "./FocalList.scss";
+
+const AnyGrid = DataGrid as any;
+
+interface FocalData {
+  NAME: string;
+  ADDRESS: string;
+  PHONE: number;
+  DEPARTMENT: string;
+  EMAIL: string;
+}
+
+interface FocalListProps {
+  orgName: string;
+}
+const focalCache: { [key: string]: FocalData[] } = {};
+
+const FocalList: React.FC<FocalListProps> = memo(({ orgName }) => {
+
+  const [focalListData, setFocalListData] = useState<FocalData[]>([]);
+  const [dataState, setDataState] = useState<State>({});
+  const fetchFocalList = async (organization: string) => {
+
+  if (focalCache[organization]) {
+    setFocalListData(focalCache[organization]);
+    return;
+  }
+
+  const masterdataType = 4;
+
+  try {
+
+    const response =
+      await EasaListService.getAdminMasterDetailsTypeFocalsList(
+        masterdataType,
+        organization
+      );
+
+    const result: FocalData[] = response?.data.map((x: any) => ({
+      NAME: x.NAME,
+      ADDRESS: x.ADDRESS,
+      PHONE: x.PHONE,
+      DEPARTMENT: x.DEPARTMENT,
+      EMAIL: x.EMAIL
+    }));
+
+    // store in global cache
+    focalCache[organization] = result;
+
+    setFocalListData(result);
+
+  } catch (error) {
+    console.error("Error fetching focal list:", error);
+  }
+};
+  useEffect(() => {
+
+    if (!orgName) return;
+
+    fetchFocalList(orgName);
+
+  }, [orgName]);
+
+  return (
+    <div className="focal-container">
+
+      <div className="focal-header">
+        <span className="focal-title">
+          List of Focals
+        </span>
+      </div>
+
+      <AnyGrid
+        className="focal-grid"
+        data={process(focalListData, dataState)}
+        {...dataState}
+        onDataStateChange={(e: any) => setDataState(e.dataState)}
+      >
+        <GridColumn field="NAME" title="Focal Names" width="200px" />
+        <GridColumn field="ADDRESS" title="Address" width="300px" />
+        <GridColumn field="PHONE" title="Phone" width="160px" />
+        <GridColumn field="DEPARTMENT" title="Department" width="180px" />
+        <GridColumn field="EMAIL" title="Email" width="200px" />
+      </AnyGrid>
+
+    </div>
+  );
+});
+
+export default FocalList;
