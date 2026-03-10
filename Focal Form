@@ -1,32 +1,28 @@
-import React, { memo, useEffect, useState } from "react";
-import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
-import { State, process } from "@progress/kendo-data-query";
-import EasaListService from "../../EasaRegisterListService";
+import React, { memo, useState, useEffect } from "react";
 import { Button, TextField } from "@mui/material";
+import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
-
-const AnyGrid = DataGrid as any;
+import { FocalMasterTable, MasterDataItem } from "../AdminModal";
 
 interface FocalData {
-    NAME: string;
-    ADDRESS: string;
-    PHONE: number;
-    DEPARTMENT: string;
-    EMAIL: string;
+    ID?: number;
+    NAME?: string;
+    ADDRESS?: string;
+    PHONENO?: number;
+    EMAIL?: string;
+    POSITION?: string;
+    TITLE?: string;
 }
 
-interface FocalListProps {
-    orgName?: string;
+interface FocalFormProps {
+    focalData?: FocalData;
+    fetchFocal?: () => void;
 }
 
-const focalCache: { [key: string]: FocalData[] } = {};
-
-const FocalForm: React.FC<FocalListProps> = memo(() => {
-
-    const [focalListData, setFocalListData] = useState<FocalData[]>([]);
-    const [dataState, setDataState] = useState<State>({});
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => {
 
     const [formData, setFormData] = useState({
+        id: 0,
         name: "",
         address: "",
         phone: "",
@@ -35,39 +31,19 @@ const FocalForm: React.FC<FocalListProps> = memo(() => {
         title: ""
     });
 
-    const fetchFocalList = async (organization: string) => {
-
-        if (focalCache[organization]) {
-            setFocalListData(focalCache[organization]);
-            return;
+    useEffect(() => {
+        if (focalData) {
+            setFormData({
+                id: focalData.ID ?? 0,
+                name: focalData.NAME ?? "",
+                address: focalData.ADDRESS ?? "",
+                phone: String(focalData.PHONENO ?? ""),
+                email: focalData.EMAIL ?? "",
+                position: focalData.POSITION ?? "",
+                title: focalData.TITLE ?? ""
+            });
         }
-
-        const masterdataType = 4;
-
-        try {
-            const response =
-                await EasaListService.getAdminMasterDetailsTypeFocalsList(
-                    masterdataType,
-                    organization
-                );
-
-            const result: FocalData[] = response?.data.map((x: any) => ({
-                NAME: x.NAME,
-                ADDRESS: x.ADDRESS,
-                PHONE: x.PHONE,
-                DEPARTMENT: x.DEPARTMENT,
-                EMAIL: x.EMAIL
-            }));
-
-            focalCache[organization] = result;
-            setFocalListData(result);
-
-        } catch (error) {
-            console.error("Error fetching focal list:", error);
-        }
-    };
-
-
+    }, [focalData]);
 
     const handleChange = (e: any) => {
         setFormData({
@@ -76,12 +52,9 @@ const FocalForm: React.FC<FocalListProps> = memo(() => {
         });
     };
 
-    const handleSave = () => {
-        console.log("Save Focal:", formData);
-    };
-
     const handleCancel = () => {
         setFormData({
+            id: 0,
             name: "",
             address: "",
             phone: "",
@@ -91,84 +64,159 @@ const FocalForm: React.FC<FocalListProps> = memo(() => {
         });
     };
 
+
+    const handleSave = async () => {
+        const items: MasterDataItem[] = [];
+        items.push({
+            Id: formData.id ?? 0,
+            OperationType: formData.id ? "update" : "add",
+            Name: formData.name,
+            Description: "",
+            IsActive: "Y",
+            Notes: "",
+            Address: formData.address,
+            Department: formData.position,
+            Phone: (formData.phone),
+            Email: formData.email,
+            Title: formData.title,
+            orgTypeId: 0
+        });
+
+        const payload = {
+            MasterDataType: "Focal",
+            Items: items
+        };
+
+        try {
+
+            await EasaListService.addMasterDataType(payload);
+
+            console.log("Focal saved successfully");
+
+            if (fetchFocal) {
+                fetchFocal(); // refresh grid
+            }
+
+            handleCancel();
+
+        } catch (error) {
+            console.error("Error saving focal:", error);
+        }
+    };
+console.log(formData, 'formdata');
     return (
         <div className="focal-container">
 
-            {/* Add Focal Form */}
             <div className="focal-form">
 
                 <div className="form-header">
-                    Add Focal
+                    {formData.name ? "Edit Focal" : "Add Focal"}
                 </div>
 
                 <div className="form-grid">
 
-                    <TextField
-                        label="Focal Name"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        size="small"
-                    />
+                    {/* LEFT SIDE */}
 
-                    <TextField
-                        label="Phone No"
-                        name="phone"
-                        value={formData.phone}
-                        onChange={handleChange}
-                        size="small"
-                    />
+                    <div className="form-column">
 
-                    <TextField
-                        label="Address"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleChange}
-                        size="small"
-                    />
+                        <div className="form-row">
+                            <label>Focal Name</label>
+                            <TextField
+                                name="name"
+                                value={formData.name}
+                                onChange={handleChange}
+                                size="small"
+                                fullWidth
+                            />
+                        </div>
 
-                    <TextField
-                        label="Email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        size="small"
-                    />
+                        <div className="form-row">
+                            <label>Address</label>
+                            <TextField
+                                name="address"
+                                value={formData.address}
+                                onChange={handleChange}
+                                size="small"
+                                fullWidth
+                            />
+                        </div>
 
-                    <TextField
-                        label="Position"
-                        name="position"
-                        value={formData.position}
-                        onChange={handleChange}
-                        size="small"
-                    />
+                        <div className="form-row">
+                            <label>Position</label>
+                            <TextField
+                                name="position"
+                                value={formData.position}
+                                onChange={handleChange}
+                                size="small"
+                                fullWidth
+                            />
+                        </div>
 
-                    <TextField
-                        label="Title"
-                        name="title"
-                        value={formData.title}
-                        onChange={handleChange}
-                        size="small"
-                    />
+                    </div>
+
+
+                    {/* RIGHT SIDE */}
+
+                    <div className="form-column">
+
+                        <div className="form-row">
+                            <label>Phone Number</label>
+                            <TextField
+                                name="phone"
+                                value={formData.phone}
+                                onChange={handleChange}
+                                size="small"
+                                fullWidth
+                            />
+                        </div>
+
+                        <div className="form-row">
+                            <label>Email</label>
+                            <TextField
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                size="small"
+                                fullWidth
+                            />
+                        </div>
+
+                        <div className="form-row">
+                            <label>Title</label>
+                            <TextField
+                                name="title"
+                                value={formData.title}
+                                onChange={handleChange}
+                                size="small"
+                                fullWidth
+                            />
+                        </div>
+
+                    </div>
 
                 </div>
+
+
                 <div className="form-actions">
-
-
-                    <Button variant="contained" onClick={handleSave}>
+                    <Button
+                        variant="outlined"
+                        onClick={handleCancel}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        variant="contained"
+                        onClick={handleSave}
+                    >
                         Save
                     </Button>
+
                 </div>
 
             </div>
-
-
-
 
         </div>
     );
 });
 
 export default FocalForm;
-
-
