@@ -1,5 +1,5 @@
 import "../AdminTable.scss";
-import React, { memo, useCallback, useEffect, useRef } from "react";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { FocalMasterTable, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
 import {
@@ -64,12 +64,12 @@ interface FocalTableProps {
 const FocalTable: React.FC<any> = memo((props) => {
 
     const gridRefBuilder = useRef<any>(null);
-
-    // expansion state
+    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+      const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);      
     const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
 
     const expandChange = (dataItem: any) => {
-
+        console.log(dataItem, 'dataItem');
         const key = dataItem.ID;
 
         setDetailExpand(prev => ({
@@ -170,6 +170,30 @@ const FocalTable: React.FC<any> = memo((props) => {
             </td>
         );
     };
+     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+    let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
+    let fixedWidth = totalColumnFixedWidth;
+    let dynamicWidth = 0;
+    let minScreenWidth = 1250;
+    let maxScreenWidth;
+    if (k_grid_width) {
+      if (k_grid_width <= minScreenWidth) {
+        return minWidth;
+      }
+      else {
+        dynamicWidth = k_grid_width - fixedWidth;
+        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+          return Math.max(minWidth, dynamicColumnWidth);
+        }
+        else {
+          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+        }
+      }
+    }
+
+  }
+
 
     useEffect(() => {
 
@@ -307,13 +331,12 @@ const FocalTable: React.FC<any> = memo((props) => {
                     <GridColumn
                         {...props.columnPropsBuilder("NAME")}
                         title="Focal Name"
-                        //cells={{ data: OrganizationCell }}
                         width="240px"
                     />
                     <GridColumn
                         title="Focal Information"
                         cells={{ data: FocalInformationCell }}
-                        width="720px"
+                        width={setPercentage(undefined, 0, 720)}
                     />
                     <GridColumn
                         {...props.columnPropsBuilder("ISACTIVE")}
