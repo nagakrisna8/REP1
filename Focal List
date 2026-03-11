@@ -1,5 +1,5 @@
 import "../AdminTable.scss";
-import React, { memo, useCallback, useRef } from "react";
+import React, { memo, useCallback, useEffect, useRef } from "react";
 import { FocalMasterTable, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
 import {
@@ -54,6 +54,7 @@ interface FocalTableProps {
     itemChange: (event: GridItemChangeEvent) => void;
     createFocal: () => void;
     saveFocal: () => void;
+    fetchFocal: () => void;
     dragStart: (dataItem: FocalMasterTable) => void;
     reorder: (dataItem: FocalMasterTable) => void;
     sortBy: "custom" | "asc" | "desc" | undefined;
@@ -69,7 +70,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
     const expandChange = (dataItem: any) => {
 
-        const key = dataItem.ORGANIZATIONID;
+        const key = dataItem.ID;
 
         setDetailExpand(prev => ({
             ...prev,
@@ -132,7 +133,7 @@ const FocalTable: React.FC<any> = memo((props) => {
     // Custom arrow column
     const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
 
-        const expanded = detailExpand[cellProps.dataItem.ORGANIZATIONID];
+        const expanded = detailExpand[cellProps.dataItem.ID];
 
         const toggle = (e: React.MouseEvent) => {
             e.stopPropagation();
@@ -142,8 +143,6 @@ const FocalTable: React.FC<any> = memo((props) => {
         return (
             <td>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <GroupIcon />
-
                     <span
                         onClick={toggle}
                         style={{ cursor: "pointer", display: "flex" }}
@@ -161,7 +160,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         return (
             <div>
-                <FocalForm />
+                <FocalForm  focalData ={detailProps.dataItem} saveFocal={props.saveFocal} fetchFocal={props.fetchFocal}/>
             </div>
         );
     };
@@ -220,7 +219,23 @@ const FocalTable: React.FC<any> = memo((props) => {
         );
     };
 
+useEffect(() => {
 
+    if (props.focalData && props.focalData.length > 0) {
+
+        const lastItem = props.focalData[props.focalData.length - 1];
+
+        if (lastItem?.inEdit) {
+
+            setDetailExpand(prev => ({
+                ...prev,
+                [lastItem.ID]: true
+            }));
+
+        }
+    }
+
+}, [props.focalData]);
     return (
         <div style={{ paddingBottom: 20 }}>
 
@@ -228,7 +243,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
                 <AnyGrid
                     ref={gridRefBuilder}
-                    className="org-grid-compact"
+                    className="focal-grid-compact"
                     style={{ height: "80vh" }}
                     data={gridData}
                     dataItemKey="ID"
@@ -249,7 +264,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                                 className="easalist-marginLeft10"
                                 id="createBtn"
                                 title="Create New"
-                                onClick={props.createOrganization}
+                                onClick={props.createFocal}
                                 size={"small"}
                                 color={"inherit"}
                                 variant={"outlined"}
@@ -337,17 +352,16 @@ const FocalTable: React.FC<any> = memo((props) => {
                             </Box>
                         }
                     </GridToolbar >
-                    <GridColumn title="Sort" cells={{ data: DragCell }} width="90px" />
                     <GridColumn
                         {...props.columnPropsBuilder("NAME")}
                         title="Focal Name"
-                        cells={{ data: OrganizationCell }}
-                        width="360px"
+                        //cells={{ data: OrganizationCell }}
+                        width="240px"
                     />
                     <GridColumn
                         title="Focal Information"
                         cells={{ data: FocalInformationCell }}
-                        width="540px"
+                        width="720px"
                     />
                     <GridColumn
                         {...props.columnPropsBuilder("ISACTIVE")}
