@@ -17,10 +17,9 @@ interface FocalData {
 interface FocalFormProps {
     focalData?: FocalData;
     saveFocal?: () => void;
-    fetchFocal?: () => void;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal }) => {
 
     const [formData, setFormData] = useState({
         id: 0,
@@ -91,8 +90,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         try {
 
             await EasaListService.addMasterDataType(payload);
-            fetchFocal?.();
-            console.log("Focal saved successfully");
+
+            console.log("Focal saved successfully");         
 
             handleCancel();
 
@@ -201,7 +200,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 </Button>
                 <Button
                     variant="contained"
-                    onClick={handleSave}
+                    onClick={saveFocal}
                 >
                     Save
                 </Button>
