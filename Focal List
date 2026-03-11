@@ -160,7 +160,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         return (
             <div>
-                <FocalForm  focalData ={detailProps.dataItem} saveFocal={props.saveFocal} fetchFocal={props.fetchFocal}/>
+                <FocalForm  focalData ={detailProps.dataItem} saveFocal={props.saveFocal}/>
             </div>
         );
     };
