@@ -16,10 +16,11 @@ interface FocalData {
 
 interface FocalFormProps {
     focalData?: FocalData;
+    saveFocal?: () => void;
     fetchFocal?: () => void;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal }) => {
 
     const [formData, setFormData] = useState({
         id: 0,
@@ -90,12 +91,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => 
         try {
 
             await EasaListService.addMasterDataType(payload);
-
+            fetchFocal?.();
             console.log("Focal saved successfully");
-
-            if (fetchFocal) {
-                fetchFocal(); // refresh grid
-            }
 
             handleCancel();
 
@@ -103,120 +100,115 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, fetchFocal }) => 
             console.error("Error saving focal:", error);
         }
     };
-console.log(formData, 'formdata');
+    console.log(formData, 'formdata');
     return (
-        <div className="focal-container">
+        <div className="focal-form">
 
-            <div className="focal-form">
+            <div className="form-header">
+                {formData.name ? "Edit Focal" : "Add Focal"}
+            </div>
 
-                <div className="form-header">
-                    {formData.name ? "Edit Focal" : "Add Focal"}
-                </div>
+            <div className="form-grid">
 
-                <div className="form-grid">
+                {/* LEFT SIDE */}
 
-                    {/* LEFT SIDE */}
+                <div className="form-column">
 
-                    <div className="form-column">
-
-                        <div className="form-row">
-                            <label>Focal Name</label>
-                            <TextField
-                                name="name"
-                                value={formData.name}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                            />
-                        </div>
-
-                        <div className="form-row">
-                            <label>Address</label>
-                            <TextField
-                                name="address"
-                                value={formData.address}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                            />
-                        </div>
-
-                        <div className="form-row">
-                            <label>Position</label>
-                            <TextField
-                                name="position"
-                                value={formData.position}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                            />
-                        </div>
-
+                    <div className="form-row">
+                        <label>Focal Name</label>
+                        <TextField
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
                     </div>
 
+                    <div className="form-row">
+                        <label>Address</label>
+                        <TextField
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
-                    {/* RIGHT SIDE */}
-
-                    <div className="form-column">
-
-                        <div className="form-row">
-                            <label>Phone Number</label>
-                            <TextField
-                                name="phone"
-                                value={formData.phone}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                            />
-                        </div>
-
-                        <div className="form-row">
-                            <label>Email</label>
-                            <TextField
-                                name="email"
-                                value={formData.email}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                            />
-                        </div>
-
-                        <div className="form-row">
-                            <label>Title</label>
-                            <TextField
-                                name="title"
-                                value={formData.title}
-                                onChange={handleChange}
-                                size="small"
-                                fullWidth
-                            />
-                        </div>
-
+                    <div className="form-row">
+                        <label>Position</label>
+                        <TextField
+                            name="position"
+                            value={formData.position}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
                     </div>
 
                 </div>
 
 
-                <div className="form-actions">
-                    <Button
-                        variant="outlined"
-                        onClick={handleCancel}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="contained"
-                        onClick={handleSave}
-                    >
-                        Save
-                    </Button>
+                {/* RIGHT SIDE */}
+
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Phone Number</label>
+                        <TextField
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Email</label>
+                        <TextField
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Title</label>
+                        <TextField
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
                 </div>
 
             </div>
 
-        </div>
-    );
+
+            <div className="form-actions">
+                <Button
+                    variant="outlined"
+                    onClick={handleCancel}
+                >
+                    Cancel
+                </Button>
+                <Button
+                    variant="contained"
+                    onClick={handleSave}
+                >
+                    Save
+                </Button>
+
+            </div>
+
+        </div>);
 });
 
 export default FocalForm;
