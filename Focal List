@@ -80,55 +80,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
     const gridData = process(props.focalData, props.dataState).data;
 
-    const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
-        (cellProps) => {
 
-            const field = cellProps.field || "";
-            const value = cellProps.dataItem[field] ?? "";
-
-            const handleChange = (e: any) => {
-
-                const updated = { ...cellProps.dataItem };
-                updated[field] = e.target.value;
-
-                cellProps.onChange?.({
-                    dataIndex: cellProps.dataIndex,
-                    dataItem: updated,
-                    field,
-                    syntheticEvent: e,
-                    value: e.target.value
-                });
-            };
-
-            return (
-                <td>
-                    <TextField fullWidth value={value} onChange={handleChange} />
-                </td>
-            );
-        },
-        []
-    );
-
-    const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => (
-        <td
-            onDragOver={(e) => {
-                e.preventDefault();
-                props.reorder(dragcellprops.dataItem);
-            }}
-        >
-            <span
-                draggable
-                style={{
-                    cursor: "move",
-                    display: "flex",
-                    justifyContent: "center"
-                }}
-                onDragStart={() => props.dragStart(dragcellprops.dataItem)}
-            >
-                <SortIcon />
-            </span>
-        </td>
-    );
 
     // Custom arrow column
     const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
@@ -160,7 +112,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         return (
             <div>
-                <FocalForm  focalData ={detailProps.dataItem} saveFocal={props.saveFocal}/>
+                <FocalForm focalData={detailProps.dataItem} saveFocal={props.saveFocal} fetchFocal={props.fetchFocal} />
             </div>
         );
     };
@@ -219,23 +171,23 @@ const FocalTable: React.FC<any> = memo((props) => {
         );
     };
 
-useEffect(() => {
+    useEffect(() => {
 
-    if (props.focalData && props.focalData.length > 0) {
+        if (props.focalData && props.focalData.length > 0) {
 
-        const lastItem = props.focalData[props.focalData.length - 1];
+            const lastItem = props.focalData[props.focalData.length - 1];
 
-        if (lastItem?.inEdit) {
+            if (lastItem?.inEdit) {
 
-            setDetailExpand(prev => ({
-                ...prev,
-                [lastItem.ID]: true
-            }));
+                setDetailExpand(prev => ({
+                    ...prev,
+                    [lastItem.ID]: true
+                }));
 
+            }
         }
-    }
 
-}, [props.focalData]);
+    }, [props.focalData]);
     return (
         <div style={{ paddingBottom: 20 }}>
 
