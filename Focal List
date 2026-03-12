@@ -1,5 +1,5 @@
 import "../AdminTable.scss";
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useEffect, useRef, useState } from "react";
 import { FocalMasterTable, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
 import {
@@ -19,17 +19,13 @@ import {
     Card,
     FormControl,
     MenuItem,
-    Select,
-    TextField,
-    Typography
+    Select, Typography
 } from "@mui/material";
 
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import SettingsIcon from "@mui/icons-material/Settings";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import SortIcon from "@mui/icons-material/Sort";
-import GroupIcon from "@mui/icons-material/Group";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 
@@ -65,7 +61,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
     const gridRefBuilder = useRef<any>(null);
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-      const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);      
+    const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
 
     const expandChange = (dataItem: any) => {
@@ -170,47 +166,40 @@ const FocalTable: React.FC<any> = memo((props) => {
             </td>
         );
     };
-     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-    let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
-    let fixedWidth = totalColumnFixedWidth;
-    let dynamicWidth = 0;
-    let minScreenWidth = 1250;
-    let maxScreenWidth;
-    if (k_grid_width) {
-      if (k_grid_width <= minScreenWidth) {
-        return minWidth;
-      }
-      else {
-        dynamicWidth = k_grid_width - fixedWidth;
-        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
-          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
-          return Math.max(minWidth, dynamicColumnWidth);
-        }
-        else {
-          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
-        }
-      }
-    }
-
-  }
-
-
-    useEffect(() => {
-
-        if (props.focalData && props.focalData.length > 0) {
-
-            const lastItem = props.focalData[props.focalData.length - 1];
-
-            if (lastItem?.inEdit) {
-
-                setDetailExpand(prev => ({
-                    ...prev,
-                    [lastItem.ID]: true
-                }));
-
+    const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+        let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
+        let fixedWidth = totalColumnFixedWidth;
+        let dynamicWidth = 0;
+        let minScreenWidth = 1250;
+        let maxScreenWidth;
+        if (k_grid_width) {
+            if (k_grid_width <= minScreenWidth) {
+                return minWidth;
+            }
+            else {
+                dynamicWidth = k_grid_width - fixedWidth;
+                if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+                    const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+                    return Math.max(minWidth, dynamicColumnWidth);
+                }
+                else {
+                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+                }
             }
         }
 
+    }
+
+    useEffect(() => {
+        if (props.focalData?.length) {
+            const newRow = props.focalData[0];
+            if (newRow?.newFlag) {
+                setDetailExpand(prev => ({
+                    ...prev,
+                    [newRow.ID]: true
+                }));
+            }
+        }
     }, [props.focalData]);
     return (
         <div style={{ paddingBottom: 20 }}>
@@ -254,24 +243,6 @@ const FocalTable: React.FC<any> = memo((props) => {
                                     Create New
                                 </Typography>
                             </Button>
-                        }
-                        {
-                            < Button
-                                className="easalist-marginLeft10"
-                                id="deleteBtn"
-                                title="Delete"
-                                onClick={props.saveFocal}
-                                variant={"outlined"}
-                                size={"small"}
-                                color={"inherit"}
-                            >
-                                <Typography
-                                    variant={"button"}
-                                    sx={{ textTransform: "none", fontSize: "14px" }}
-                                >
-                                    Save
-                                </Typography>
-                            </Button >
                         }
                         {
                             <Box
