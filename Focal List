@@ -215,7 +215,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     resizable
                     editField={editField}
                     {...props.dataState}
-                    selectedField={SELECTED_FIELD}
+                   // selectedField={SELECTED_FIELD}
                     onDataStateChange={props.dataStateChange}
                     onItemChange={props.itemChange}
                     columnMenuIcon={filterIcon}
