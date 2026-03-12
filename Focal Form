@@ -1,8 +1,10 @@
 import React, { memo, useState, useEffect } from "react";
 import { Button, TextField } from "@mui/material";
+import { useDispatch } from "react-redux";
 import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
-import { FocalMasterTable, MasterDataItem } from "../AdminModal";
+import { MasterDataItem } from "../AdminModal";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
 interface FocalData {
     ID?: number;
@@ -12,6 +14,7 @@ interface FocalData {
     EMAIL?: string;
     POSITION?: string;
     TITLE?: string;
+    ISACTIVE?: boolean;
 }
 
 interface FocalFormProps {
@@ -20,7 +23,9 @@ interface FocalFormProps {
     fetchFocal: () => void;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal,fetchFocal }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal }) => {
+
+    const dispatch = useDispatch();
 
     const [formData, setFormData] = useState({
         id: 0,
@@ -29,19 +34,21 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal,fetchFo
         phone: "",
         email: "",
         position: "",
-        title: ""
+        title: "",
+        isActive: false
     });
 
     useEffect(() => {
-        if (focalData) {
+        if (focalData && formData.id === 0) {
             setFormData({
-                id: focalData.ID ?? 0,
+                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
                 name: focalData.NAME ?? "",
                 address: focalData.ADDRESS ?? "",
                 phone: String(focalData.PHONENO ?? ""),
                 email: focalData.EMAIL ?? "",
                 position: focalData.POSITION ?? "",
-                title: focalData.TITLE ?? ""
+                title: focalData.TITLE ?? "",
+                isActive: focalData.ISACTIVE ?? false
             });
         }
     }, [focalData]);
@@ -61,25 +68,57 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal,fetchFo
             phone: "",
             email: "",
             position: "",
-            title: ""
+            title: "",
+            isActive: false
         });
     };
 
-
     const handleSave = async () => {
+
+        // Required validation
+        if (!formData.name || formData.name.trim() === "") {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Focal Name is required."
+            }));
+            return;
+        }
+
+        // Phone validation
+        if (formData.phone && !/^[0-9]{6,15}$/.test(formData.phone)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid phone number."
+            }));
+            return;
+        }
+
+        // Email validation
+        if (formData.email && !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid email address."
+            }));
+            return;
+        }
+
         const items: MasterDataItem[] = [];
+
         items.push({
             Id: formData.id ?? 0,
             OperationType: formData.id ? "update" : "add",
-            Name: formData.name,
+            Name: formData.name.trim(),
             Description: "",
-            IsActive: "Y",
+            IsActive: formData.isActive ? "Y" : "N",
             Notes: "",
-            Address: formData.address,
-            Department: formData.position,
-            Phone: (formData.phone),
-            Email: formData.email,
-            Title: formData.title,
+            Address: formData.address ?? "",
+            Department: formData.position ?? "",
+            Phone: formData.phone ?? "",
+            Email: formData.email ?? "",
+            Title: formData.title ?? "",
             orgTypeId: 0
         });
 
@@ -91,27 +130,39 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal,fetchFo
         try {
 
             await EasaListService.addMasterDataType(payload);
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Focal saved successfully."
+            }));
+
             fetchFocal?.();
-            console.log(fetchFocal,"Focal saved successfully");
 
             handleCancel();
 
         } catch (error) {
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Focal."
+            }));
+
             console.error("Error saving focal:", error);
         }
     };
-    console.log(formData, 'formdata');
+
     return (
-        <div className="focal-form">
+        <div>
 
             <div className="form-header">
-                {formData.name ? "Edit Focal" : "Add Focal"}
+                {formData.id ? "Edit Focal" : "Add Focal"}
             </div>
 
             <div className="form-grid">
 
                 {/* LEFT SIDE */}
-
                 <div className="form-column">
 
                     <div className="form-row">
@@ -149,9 +200,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal,fetchFo
 
                 </div>
 
-
                 {/* RIGHT SIDE */}
-
                 <div className="form-column">
 
                     <div className="form-row">
@@ -191,24 +240,26 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal,fetchFo
 
             </div>
 
-
             <div className="form-actions">
                 <Button
+                    className="CancelBtn"
                     variant="outlined"
                     onClick={handleCancel}
                 >
                     Cancel
                 </Button>
+
                 <Button
+                    className="Savebtn"
                     variant="contained"
                     onClick={handleSave}
                 >
                     Save
                 </Button>
-
             </div>
 
-        </div>);
+        </div>
+    );
 });
 
 export default FocalForm;
