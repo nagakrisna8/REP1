@@ -39,7 +39,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
     });
 
     useEffect(() => {
-        if (focalData && formData.id === 0) {
+        if (focalData) {
             setFormData({
                 id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
                 name: focalData.NAME ?? "",
@@ -53,11 +53,13 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         }
     }, [focalData]);
 
-    const handleChange = (e: any) => {
-        setFormData({
-            ...formData,
-            [e.target.name]: e.target.value
-        });
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { name, value } = e.target;
+
+        setFormData((prev) => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     const handleCancel = () => {
@@ -71,12 +73,13 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             title: "",
             isActive: false
         });
+
+        saveFocal?.();
     };
 
     const handleSave = async () => {
 
-        // Required validation
-        if (!formData.name || formData.name.trim() === "") {
+        if (!formData.name.trim()) {
             dispatch(showSnackbar({
                 snackbarOpen: true,
                 snackbarType: "error",
@@ -85,7 +88,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             return;
         }
 
-        // Phone validation
         if (formData.phone && !/^[0-9]{6,15}$/.test(formData.phone)) {
             dispatch(showSnackbar({
                 snackbarOpen: true,
@@ -95,7 +97,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             return;
         }
 
-        // Email validation
         if (formData.email && !/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(formData.email)) {
             dispatch(showSnackbar({
                 snackbarOpen: true,
@@ -105,22 +106,22 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             return;
         }
 
-        const items: MasterDataItem[] = [];
-
-        items.push({
-            Id: formData.id ?? 0,
-            OperationType: formData.id ? "update" : "add",
-            Name: formData.name.trim(),
-            Description: "",
-            IsActive: formData.isActive ? "Y" : "N",
-            Notes: "",
-            Address: formData.address ?? "",
-            Department: formData.position ?? "",
-            Phone: formData.phone ?? "",
-            Email: formData.email ?? "",
-            Title: formData.title ?? "",
-            orgTypeId: 0
-        });
+        const items: MasterDataItem[] = [
+            {
+                Id: formData.id ?? 0,
+                OperationType: formData.id > 0 ? "update" : "add",
+                Name: formData.name.trim(),
+                Description: "",
+                IsActive: formData.isActive ? "Y" : "N",
+                Notes: "",
+                Address: formData.address ?? "",
+                Department: formData.position ?? "",
+                Phone: formData.phone ?? "",
+                Email: formData.email ?? "",
+                Title: formData.title ?? "",
+                orgTypeId: 0
+            }
+        ];
 
         const payload = {
             MasterDataType: "Focal",
@@ -137,7 +138,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 snackbarMessage: "Focal saved successfully."
             }));
 
-            fetchFocal?.();
+            fetchFocal();
 
             handleCancel();
 
@@ -157,12 +158,11 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         <div>
 
             <div className="form-header">
-                {formData.id ? "Edit Focal" : "Add Focal"}
+                {formData.id > 0 ? "Edit Focal" : "Add Focal"}
             </div>
 
             <div className="form-grid">
 
-                {/* LEFT SIDE */}
                 <div className="form-column">
 
                     <div className="form-row">
@@ -200,7 +200,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
                 </div>
 
-                {/* RIGHT SIDE */}
                 <div className="form-column">
 
                     <div className="form-row">
@@ -241,6 +240,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             </div>
 
             <div className="form-actions">
+
                 <Button
                     className="CancelBtn"
                     variant="outlined"
@@ -256,6 +256,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 >
                     Save
                 </Button>
+
             </div>
 
         </div>
