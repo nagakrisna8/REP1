@@ -1,4 +1,4 @@
-import React, { memo, useState, useEffect, useRef } from "react";
+import React, { memo, useState, useEffect } from "react";
 import { Button, TextField } from "@mui/material";
 import { useDispatch } from "react-redux";
 import EasaListService from "../../EasaRegisterListService";
@@ -38,12 +38,10 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         title: "",
         isActive: false
     });
-    const originalData = useRef<typeof formData | null>(null);
-
 
     useEffect(() => {
-        if (focalData) {
-            const mapped = {
+        if (focalData && formData.id === 0) {
+            setFormData({
                 id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
                 name: focalData.NAME ?? "",
                 address: focalData.ADDRESS ?? "",
@@ -52,11 +50,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 position: focalData.POSITION ?? "",
                 title: focalData.TITLE ?? "",
                 isActive: focalData.ISACTIVE ?? false
-            };
-            setFormData(mapped);
-            originalData.current = mapped;
-        }else{
-            originalData.current = null;
+            });
         }
     }, [focalData]);
 
@@ -104,20 +98,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             cancelFocal(focalData.ID);
         }
     };
-    const handleSave = async () => {
-        if (formData.id > 0 && originalData.current) {
-            const hasChanges = (Object.keys(formData) as (keyof typeof formData)[])
-                .some((key) => String(formData[key]) !== String(originalData.current![key]));
 
-            if (!hasChanges) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "No data to save"
-                }));
-                return;
-            }
-        }
+    const handleSave = async () => {
 
         // Required validation
         if (!formData.name || formData.name.trim() === "") {
@@ -130,15 +112,15 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         }
 
         // Phone validation
-
-        if (formData.phone && !/^\d+$/.test(formData.phone)) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Invalid Phone Number"
-            }));
-            return;
-        }
+       
+if (formData.phone && !/^\d+$/.test(formData.phone)) {
+  dispatch(showSnackbar({
+    snackbarOpen: true,
+    snackbarType: "error",
+    snackbarMessage: "Invalid Phone Number"
+  }));
+  return;
+}
 
         const items: MasterDataItem[] = [];
 
