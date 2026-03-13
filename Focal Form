@@ -49,15 +49,17 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 email: focalData.EMAIL ?? "",
                 position: focalData.POSITION ?? "",
                 title: focalData.TITLE ?? "",
-                isActive: focalData.ISACTIVE ?? false
+                isActive: Boolean(focalData.ISACTIVE)
             });
         }
     }, [focalData]);
 
     const handleChange = (e: any) => {
+        const { name, value, type, checked } = e.target;
+
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: type === "checkbox" ? checked : value
         });
     };
 
@@ -65,7 +67,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
         if ((focalData as any)?.newFlag) {
 
-            // Clear only new row data
             setFormData({
                 id: 0,
                 name: "",
@@ -79,7 +80,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
         } else {
 
-            // Restore existing data
             setFormData({
                 id: focalData?.ID ?? 0,
                 name: focalData?.NAME ?? "",
@@ -88,20 +88,42 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 email: focalData?.EMAIL ?? "",
                 position: focalData?.POSITION ?? "",
                 title: focalData?.TITLE ?? "",
-                isActive: focalData?.ISACTIVE ?? false
+                isActive: Boolean(focalData?.ISACTIVE)
             });
 
         }
 
-        // Collapse row
         if (cancelFocal && focalData?.ID !== undefined) {
             cancelFocal(focalData.ID);
         }
     };
 
+    const isDataModified = () => {
+
+        if (!focalData) return true;
+
+        return (
+            formData.name !== (focalData.NAME ?? "") ||
+            formData.address !== (focalData.ADDRESS ?? "") ||
+            formData.phone !== String(focalData.PHONENO ?? "") ||
+            formData.email !== (focalData.EMAIL ?? "") ||
+            formData.position !== (focalData.POSITION ?? "") ||
+            formData.title !== (focalData.TITLE ?? "") ||
+            formData.isActive !== Boolean(focalData.ISACTIVE)
+        );
+    };
+
     const handleSave = async () => {
 
-        // Required validation
+        if (formData.id && !isDataModified()) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "warning",
+                snackbarMessage: "No data to save."
+            }));
+            return;
+        }
+
         if (!formData.name || formData.name.trim() === "") {
             dispatch(showSnackbar({
                 snackbarOpen: true,
@@ -111,16 +133,14 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             return;
         }
 
-        // Phone validation
-       
-if (formData.phone && !/^\d+$/.test(formData.phone)) {
-  dispatch(showSnackbar({
-    snackbarOpen: true,
-    snackbarType: "error",
-    snackbarMessage: "Invalid Phone Number"
-  }));
-  return;
-}
+        if (formData.phone && !/^\d+$/.test(formData.phone)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Phone Number"
+            }));
+            return;
+        }
 
         const items: MasterDataItem[] = [];
 
@@ -179,7 +199,6 @@ if (formData.phone && !/^\d+$/.test(formData.phone)) {
 
             <div className="form-grid">
 
-                {/* LEFT SIDE */}
                 <div className="form-column">
 
                     <div className="form-row">
@@ -217,7 +236,6 @@ if (formData.phone && !/^\d+$/.test(formData.phone)) {
 
                 </div>
 
-                {/* RIGHT SIDE */}
                 <div className="form-column">
 
                     <div className="form-row">
