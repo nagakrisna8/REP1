@@ -1,15 +1,28 @@
-const expandChange = (dataItem: any) => {
-    const key = dataItem.ID;
+let isDuplicate = false;
 
-    setDetailExpand(prev => {
-        const isCurrentlyOpen = prev[key];
+if (formData.email && formData.email.trim() !== "") {
+    // Check duplicate by EMAIL
+    isDuplicate = focalList?.some(
+        (item: FocalData) =>
+            item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
+            item.ID !== formData.id
+    );
+} else {
+    // If email not provided → check duplicate by NAME
+    isDuplicate = focalList?.some(
+        (item: FocalData) =>
+            item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
+            item.ID !== formData.id
+    );
+}
 
-        if (isCurrentlyOpen) {
-            // close current row
-            return {};
-        }
-
-        // open new row and close others
-        return { [key]: true };
-    });
-};
+if (isDuplicate) {
+    dispatch(showSnackbar({
+        snackbarOpen: true,
+        snackbarType: "error",
+        snackbarMessage: formData.email
+            ? "Email must be unique."
+            : "Focal Name must be unique."
+    }));
+    return;
+}
