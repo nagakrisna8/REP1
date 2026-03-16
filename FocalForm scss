@@ -1,7 +1,344 @@
-.focal-grid-compact .k-hierarchy-col,
-.focal-grid-compact .k-hierarchy-cell {
-  width: 0 !important;
-  min-width: 0 !important;
-  padding: 0 !important;
-  border: none !important;
+import "../AdminTable.scss";
+import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import { FocalMasterTable, SortByData } from "../AdminModal";
+import { State, process } from "@progress/kendo-data-query";
+import {
+    Grid as DataGrid,
+    GridCellProps,
+    GridColumn,
+    GridColumnMenuFilter,
+    GridColumnMenuProps,
+    GridDataStateChangeEvent,
+    GridItemChangeEvent,
+    GridToolbar
+} from "@progress/kendo-react-grid";
+
+import {
+    Box,
+    Button,
+    Card,
+    FormControl,
+    MenuItem,
+    Select, Typography
+} from "@mui/material";
+
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import SettingsIcon from "@mui/icons-material/Settings";
+import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
+import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+
+import { filterIcon } from "@progress/kendo-svg-icons";
+import FocalForm from "../Focal/FocalForm";
+
+const editField = "inEdit";
+const SELECTED_FIELD = "selected";
+const AnyGrid = DataGrid as any;
+
+const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
+    <div>
+        <GridColumnMenuFilter {...props} expanded />
+    </div>
+);
+
+interface FocalTableProps {
+    KEY: string;
+    columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
+    focalData: FocalMasterTable[];
+    dataState: State;
+    dataStateChange: (event: GridDataStateChangeEvent) => void;
+    itemChange: (event: GridItemChangeEvent) => void;
+    createFocal: () => void;
+    saveFocal: () => void;
+    fetchFocal: () => void;
+    dragStart: (dataItem: FocalMasterTable) => void;
+    reorder: (dataItem: FocalMasterTable) => void;
+    sortBy: "custom" | "asc" | "desc" | undefined;
+    handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
 }
+
+const FocalTable: React.FC<any> = memo((props) => {
+
+    const gridRefBuilder = useRef<any>(null);
+    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+    const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+    const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
+    const gridData = process(props.focalData, props.dataState).data;
+
+    const formDataMapRef = useRef<{ [id: number]: any }>({});
+
+    const handleFormChange = useCallback((id: number, data: any) => {
+        formDataMapRef.current[id] = data;
+    }, []);
+
+    const clearFormData = useCallback((id: number) => {
+        delete formDataMapRef.current[id];
+    }, []);
+
+    const cancelFocal = (id: number) => {
+        setDetailExpand(prev => ({
+            ...prev,
+            [id]: false
+        }));
+    };
+    const expandChange = (dataItem: any) => {
+        const key = dataItem.ID;
+        setDetailExpand(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
+
+    const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+        const expanded = detailExpand[cellProps.dataItem.ID];
+
+        const toggle = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            expandChange(cellProps.dataItem);
+        };
+
+        return (
+            <td>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span
+                        onClick={toggle}
+                        style={{ cursor: "pointer", display: "flex" }}
+                    >
+                        {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
+                    </span>
+                </div>
+            </td>
+        );
+    };
+
+    const DetailComponent = (detailProps: any) => {
+        const id = detailProps.dataItem.ID;
+        return (
+            <div>
+                <FocalForm
+                    focalData={detailProps.dataItem}
+                    saveFocal={props.saveFocal}
+                    fetchFocal={props.fetchFocal}
+                    cancelFocal={cancelFocal}
+                    focalList={props.focalData}
+                    savedFormData={formDataMapRef.current[id]}
+                    onFormChange={(data: any) => handleFormChange(id, data)}
+                    clearFormData={() => clearFormData(id)}
+                />
+            </div>
+        );
+    };
+
+    const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
+        const dataItem = cellProps.dataItem;
+
+        return (
+            <td>
+                <div style={{ display: "flex", gap: "12px" }}>
+                    <span style={{ minWidth: "120px" }}>
+                        {dataItem.ADDRESS || ""}
+                    </span>
+                    <span style={{ minWidth: "120px" }}>
+                        {dataItem.PHONENO || ""}
+                    </span>
+                    <span style={{ minWidth: "120px" }}>
+                        {dataItem.POSITION || ""}
+                    </span>
+                    <span style={{ minWidth: "180px" }}>
+                        {dataItem.EMAIL || ""}
+                    </span>
+                </div>
+            </td>
+        );
+    };
+
+    const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+        const dataItem = cellProps.dataItem;
+
+        const handleChange = (e: any) => {
+            const updated = {
+                ...dataItem,
+                ISACTIVE: e.target.checked
+            };
+
+            cellProps.onChange?.({
+                dataIndex: cellProps.dataIndex,
+                dataItem: updated,
+                field: cellProps.field,
+                syntheticEvent: {} as React.SyntheticEvent,
+                value: e.target.checked
+            });
+        };
+
+        return (
+            <td>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                    <input
+                        type="checkbox"
+                        checked={dataItem.ISACTIVE}
+                        onChange={handleChange}
+                    />
+                </div>
+            </td>
+        );
+    };
+
+    const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+        let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
+        let fixedWidth = totalColumnFixedWidth;
+        let dynamicWidth = 0;
+        let minScreenWidth = 1250;
+        if (k_grid_width) {
+            if (k_grid_width <= minScreenWidth) {
+                return minWidth;
+            } else {
+                dynamicWidth = k_grid_width - fixedWidth;
+                if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+                    const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+                    return Math.max(minWidth, dynamicColumnWidth);
+                } else {
+                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined;
+                }
+            }
+        }
+    };
+
+    useEffect(() => {
+        if (props.focalData?.length) {
+            const newRow = props.focalData[0];
+            if (newRow?.newFlag) {
+                setDetailExpand(prev => ({
+                    ...prev,
+                    [newRow.ID]: true
+                }));
+            }
+        }
+    }, [props.focalData]);
+
+    return (
+        <div style={{ height: "calc(100vh - 240px)" }}>
+            <Card
+                style={{
+                    borderLeft: "4px solid #0033A1",
+                    marginLeft: "22px",
+                    overflow: "hidden",
+                    maxHeight: "calc(100vh - 240px)",
+                }}
+            >
+                <AnyGrid
+                    ref={gridRefBuilder}
+                    id="kgrid-oss-checklistType"
+                    className="focal-grid-compact"
+                    data={gridData}
+                    dataItemKey="ID"
+                    scrollable="scrollable"
+                    resizable
+                    editField={editField}
+                    {...props.dataState}
+                    onDataStateChange={props.dataStateChange}
+                    onItemChange={props.itemChange}
+                    columnMenuIcon={filterIcon}
+                    detail={DetailComponent}
+                    detailExpand={detailExpand}
+                >
+                    <GridToolbar key="grid-toolbar">
+                        {
+                            <Button
+                                className="easalist-marginLeft10"
+                                id="createBtn"
+                                title="Create New"
+                                onClick={props.createFocal}
+                                size={"small"}
+                                color={"inherit"}
+                                variant={"outlined"}
+                            >
+                                <AddCircleOutlineIcon className="iconClass" />
+                                <Typography
+                                    variant={"button"}
+                                    sx={{ textTransform: "none", fontSize: "14px" }}
+                                >
+                                    Create New
+                                </Typography>
+                            </Button>
+                        }
+                        {
+                            <Box
+                                sx={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 1.5,
+                                    position: "absolute",
+                                    right: 20,
+                                }}
+                            >
+                                <Typography
+                                    variant="body2"
+                                    sx={{
+                                        color: "#253746",
+                                        fontWeight: 500,
+                                        whiteSpace: "nowrap",
+                                    }}
+                                >
+                                    Sort Order :
+                                </Typography>
+                                <FormControl variant="outlined">
+                                    <Select
+                                        id="register-type-select-dropdown"
+                                        className="text-normal"
+                                        style={{
+                                            width: "200px",
+                                            height: "32px",
+                                            fontSize: "14px",
+                                            color: "#253746",
+                                        }}
+                                        value={props.sortBy || "custom"}
+                                        onChange={(e) =>
+                                            props.handleSortByChange(
+                                                "focal",
+                                                e.target.value as "custom" | "asc" | "desc"
+                                            )
+                                        }
+                                    >
+                                        <MenuItem value="custom">
+                                            <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Customize
+                                        </MenuItem>
+                                        <MenuItem value="asc">
+                                            <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Focal Management: Ascending
+                                        </MenuItem>
+                                        <MenuItem value="desc">
+                                            <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                            Focal Management : Descending
+                                        </MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Box>
+                        }
+                    </GridToolbar>
+                    <GridColumn
+                        {...props.columnPropsBuilder("NAME")}
+                        title="Focal Name"
+                        width="240px"
+                    />
+                    <GridColumn field="PHONE" title="Phone" width={setPercentage(undefined, 0, 272)} />
+                    <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
+                    <GridColumn
+                        {...props.columnPropsBuilder("ISACTIVE")}
+                        title="Active"
+                        cells={{ data: activeCheckbox }}
+                        width="120px"
+                    />
+                    <GridColumn
+                        title="Focals"
+                        cells={{ data: ContactFocals }}
+                        width="120px"
+                    />
+                </AnyGrid>
+            </Card>
+        </div>
+    );
+});
+
+export default FocalTable;
