@@ -1,4 +1,3 @@
-
 import "./AdminTable.scss";
 import {
     MenuItem, Select,
@@ -54,17 +53,10 @@ interface MasterDataPayload {
     MasterDataType: string;
     Items: MasterDataItem[]
 }
-const Options = [
-    "Organization Type",
-    "Organization",
-    "Supplier Category",
-    "Supplier Activity Authorized",
-    "Focal Management"
-];
 const isColumnActive = (field, dataState) => {
     return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
 };
-type TableMaintenancePage = "Organization Type" | "Organization" | "Supplier Category" | "Supplier Activity Authorized" | "Focal Management";
+type TableMaintenancePage = "Organization Type" | "Organization" | "Supplier Category" | "Supplier Activity Authorised" | "Focal Management";
 const TableMaintenance: React.FC = () => {
     const dispatch = useDispatch();
     const [sortBy, setSortBy] = useState<SortByData>({
@@ -90,7 +82,7 @@ const TableMaintenance: React.FC = () => {
         if (!dirtyResponse) return;
 
         if (dirtyFlag) {
-            if (selectedPage === 'Supplier Activity Authorized') fetchSupplierActivity();
+            if (selectedPage === 'Supplier Activity Authorised') fetchSupplierActivity();
             else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
             else if (selectedPage === 'Organization Type') fetchOrganizationType();
             else if (selectedPage === 'Organization') fetchOrganization(selectedOrgId);
@@ -242,12 +234,16 @@ const TableMaintenance: React.FC = () => {
             MasterDataType: "OrganizationType",
             Items: items,
         };
-
-        console.log("Final Payload:", payload);
-
         try {
-            await EasaListService.addMasterDataType(payload);
-
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Organization Type"
+                }));
+                return;
+            }
             setDirtyFlag(false);
             fetchOrganizationType();
 
@@ -466,8 +462,15 @@ const TableMaintenance: React.FC = () => {
         };
 
         try {
-
-            await EasaListService.addMasterDataType(payload);
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Organization"
+                }));
+                return;
+            }
 
             setDirtyFlag(false);
 
@@ -659,8 +662,15 @@ const TableMaintenance: React.FC = () => {
         };
 
         try {
-            await EasaListService.addMasterDataType(payload);
-
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Supplier Activity"
+                }));
+                return;
+            }
             setDirtyFlag(false);
             fetchSupplierActivity();
 
@@ -697,7 +707,7 @@ const TableMaintenance: React.FC = () => {
         setErrorCodeMasterActiveItem(dataItem);
     }
     function supplierActivityMastereorder(dataItem: SupplierActivityMasterTable) {
-        if (selectedPage === "Supplier Activity Authorized") {
+        if (selectedPage === "Supplier Activity Authorised") {
             if (errorCodeMasterActiveItem === dataItem) return;
             let reorderData = [...supplierActivityData];
             let prevIndex = reorderData.findIndex((p) => p === errorCodeMasterActiveItem);
@@ -853,8 +863,15 @@ const TableMaintenance: React.FC = () => {
         };
 
         try {
-            await EasaListService.addMasterDataType(payload);
-
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error saving the Supplier Category"
+                }));
+                return;
+            }
             setDirtyFlag(false);
             fetchSupplierCategory();
 
@@ -945,45 +962,6 @@ const TableMaintenance: React.FC = () => {
 
         const current = [...focalData];
         const original = [...originalFocalData];
-
-        // if (
-        //     current.some(
-        //         (i) =>
-        //             !i.ACTIVITYCATEGORY ||
-        //             i.ACTIVITYCATEGORY.trim() === "" ||
-        //             !i.ACTIVITYDESCRIPTION ||
-        //             i.ACTIVITYDESCRIPTION.trim() === ""
-        //     )
-        // ) {
-        //     dispatch(
-        //         showSnackbar({
-        //             snackbarOpen: true,
-        //             snackbarType: "error",
-        //             snackbarMessage: "Please fill details.",
-        //         })
-        //     );
-        //     return;
-        // }
-
-        // const uniqueCombinationCount = new Set(
-        //     current.map(
-        //         (i) =>
-        //             `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
-        //     )
-        // ).size;
-
-        // if (uniqueCombinationCount !== current.length) {
-        //     dispatch(
-        //         showSnackbar({
-        //             snackbarOpen: true,
-        //             snackbarType: "error",
-        //             snackbarMessage:
-        //                 "Activity Category + Description  must be unique.",
-        //         })
-        //     );
-        //     return;
-        // }
-
         const items: MasterDataItem[] = [];
 
         current.forEach((row) => {
@@ -1154,6 +1132,17 @@ const TableMaintenance: React.FC = () => {
                 setSupplierActivityData(ascErrorCodeData);
             }
         }
+        if (key === 'focal') {
+            let ascErrorCodeData: FocalMasterTable[] = [...focalData];
+
+            if (value === 'asc' || value === 'desc') {
+                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["NAME"], [value]);
+
+                let i = 1;
+                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
+                setFocalData(ascErrorCodeData);
+            }
+        }
 
         setSortBy({ ...sortBy, [key]: value });
         if (setScreenDirty) {
@@ -1166,8 +1155,6 @@ const TableMaintenance: React.FC = () => {
         const result = await EasaListService.getAdminMasterData();
         const data = result?.data ?? [];
         setMasterDataOptions(data);
-
-        console.log(result, data, 'data');
     };
     const handleOrg = (event) => {
         const orgTypeId = event.target.value;
@@ -1210,20 +1197,20 @@ const TableMaintenance: React.FC = () => {
             <div className="EASA-Admin-table-maintenance-topbar">
                 <div>Master Data</div>
                 <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedPage} onChange={handlePageChange} size="medium">
-                    {Options.map((item) => (
+                    {masterDataOptions.map(({ MasterDataId, MasterData }) => (
                         <MenuItem
-                            key={item}
-                            value={item}
+                            key={MasterDataId}
+                            value={MasterData}
                             className="text-normal"
                         >
-                            {item}
+                            {MasterData}
                         </MenuItem>
                     ))}
                 </Select>
                 {selectedPage === "Organization" && (
                     <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
                         Organization Type
-                        <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedOrgId} onChange={handleOrg} size="medium"
+                        <Select id="admin-table-page-selector" style={{ maxWidth: 280, minWidth: 250 }} value={selectedOrgId} onChange={handleOrg} size="medium"
                             MenuProps={{
                                 PaperProps: {
                                     sx: {
@@ -1282,7 +1269,6 @@ const TableMaintenance: React.FC = () => {
                             itemChange={organizationItemChange}
                             createOrganization={CreateOrganization}
                             saveOrganization={saveOrganization}
-                            fetchFocal={fetchFocal}
                             dragStart={organizationDragStart}
                             reorder={organizationMasteReorder}
                             sortBy={sortBy.supplierActivity}
@@ -1309,7 +1295,7 @@ const TableMaintenance: React.FC = () => {
                     />
                 )}
 
-                {selectedPage === "Supplier Activity Authorized" && (
+                {selectedPage === "Supplier Activity Authorised" && (
                     <SupplierActivityTable
                         key="kgrid-oss-admin-table-errorCode-comp-1"
                         KEY={SUPPLIER_ACTIVITY_DATA_ITEM_KEY}
@@ -1337,9 +1323,11 @@ const TableMaintenance: React.FC = () => {
                         itemChange={focalItemChange}
                         createFocal={CreateFocal}
                         saveFocal={onSaveFocal}
+                        fetchFocal={fetchFocal}
+                        organizationData={organizationData}
                         dragStart={focalMasterTableDragStart}
                         reorder={focalMastereorder}
-                        sortBy={sortBy.supplierActivity}
+                        sortBy={sortBy.focal}
                         handleSortByChange={handleSortByChange}
                     />
                 )}
