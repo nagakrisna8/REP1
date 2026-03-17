@@ -104,7 +104,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         return (
             <td>
-                <div style={{ display: "flex", alignItems: "center", justifyContent:'center',gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: 'center', gap: 6 }}>
                     <span
                         onClick={toggle}
                         style={{ cursor: "pointer", display: "flex" }}
@@ -243,6 +243,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     onItemChange={props.itemChange}
                     columnMenuIcon={filterIcon}
                     detail={DetailComponent}
+                    expandField="__neverExpand__"
                     detailExpand={detailExpand}
                 >
                     <GridToolbar key="grid-toolbar">
@@ -340,7 +341,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     />
                 </AnyGrid>
             </Card>
-        </div>
+        </div >
     );
 });
 
