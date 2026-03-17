@@ -15,6 +15,8 @@ $text-size-default: 14px;
     align-items: center;
     justify-content: flex-start;
     margin-left: 22px;
+    //margin-top: 8px;
+    //margin-bottom: 16px;
     gap: 8px;
     color: $text-default;
   }
@@ -25,12 +27,16 @@ $text-size-default: 14px;
 
   #admin-table-page-selector,
   #admin-table-categorytype-selector {
+    // min-width: 180px;
+    // max-width: 180px;
     margin: 0px;
     padding: 4px 8px;
   }
 
   #admin-table-categorytype-selector {
     width: 147px;
+    margin: 0px;
+    padding: 4px 8px;
   }
 
   .EASA-Admin-table-maintenance-section {
@@ -41,30 +47,6 @@ $text-size-default: 14px;
     display: none !important;
   }
 
-  /* ✅ FIX: Prevent grid from stretching */
-  .k-grid-content table {
-    width: auto !important;
-    min-width: unset !important;
-  }
-
-  .k-table {
-    table-layout: auto !important;
-  }
-
-  /* ✅ FIX: Completely remove hierarchy column space */
-  .focal-grid-compact.k-grid {
-    .k-hierarchy-col,
-    .k-hierarchy-cell {
-      width: 0 !important;
-      min-width: 0 !important;
-      max-width: 0 !important;
-      padding: 0 !important;
-      border: none !important;
-      display: none !important;
-    }
-  }
-
-  /* Existing grid height controls */
   #kgrid-oss-checklistType,
   #kgrid-oss-admin-table-errorCode1,
   #kgrid-oss-admin-table-errorCode1-itar,
@@ -76,52 +58,80 @@ $text-size-default: 14px;
   #kgrid-oss-admin-table-reasonCode-itar {
     min-height: 130px;
     max-height: inherit !important;
-
-    td,
-    th {
-      color: $text-default;
-    }
-
-    th {
-      padding-block: 0 !important;
-      height: $table-row-height !important;
-    }
-
-    .k-table-alt-row {
-      background-color: $table-bg-alt-row !important;
-    }
-
-    tbody tr:hover {
-      background-color: $table-row-bg-hover !important;
-    }
-
-    tbody tr td {
-      border-bottom: 1px solid $table-row-border-col !important;
-      padding: 0 8px !important;
-      height: $table-row-height !important;
-    }
   }
 
-  /* Buttons */
   #kgrid-oss-checklistType td .deleteBtn,
   #kgrid-oss-admin-table-errorCode1 td .deleteBtn,
-  #kgrid-oss-admin-table-errorCode2 td .deleteBtn {
+  #kgrid-oss-admin-table-errorCode1-itar td .deleteBtn,
+  #kgrid-oss-admin-table-errorCode2 td .deleteBtn,
+  #kgrid-oss-admin-table-errorCode3 td .deleteBtn,
+  #kgrid-oss-admin-table-category td .deleteBtn,
+  #kgrid-oss-admin-table-category-type td .deleteBtn,
+  #kgrid-oss-admin-table-reasonCode td .deleteBtn,
+  #kgrid-oss-admin-table-reasonCode-itar td .deleteBtn {
     padding: 0.2em 1.5em !important;
     height: 32px !important;
     border: 1px solid #a19b9b !important;
     color: #5a5a5a !important;
     font-weight: bold;
     border-radius: 4px !important;
+    cursor: pointer;
     background: #ffffff;
   }
 
-  /* Remove hover white override */
-  .focal-grid-compact {
-    --kendo-grid-row-hover-bg: #ffffff;
+  #kgrid-oss-checklistType.k-table-tbody .k-table-row .k-dropdownlist,
+  #kgrid-oss-admin-table-errorCode1.k-table-tbody .k-table-row .k-dropdownlist,
+  #kgrid-oss-admin-table-errorCode1-itar.k-table-tbody .k-table-row .k-dropdownlist,
+  #kgrid-oss-admin-table-errorCode2.k-table-tbody .k-table-row .k-dropdownlist,
+  #kgrid-oss-admin-table-errorCode3.k-table-tbody .k-table-row .k-dropdownlist,
+  #kgrid-oss-admin-table-category.k-table-tbody .k-table-row .k-dropdownlist #kgrid-oss-admin-table-category-type.k-table-tbody .k-table-row .k-dropdownlist #kgrid-oss-admin-table-reasonCode.k-table-tbody .k-table-row .k-dropdownlist,
+  #kgrid-oss-admin-table-reasonCode-itar.k-table-tbody .k-table-row .k-dropdownlist {
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    border: 1px solid rgba(118, 118, 118, 0.3);
+    padding: 3px 0px;
+    height: 28px;
+    margin-block: 2px;
+  }
+.focal-grid-compact .k-hover,
+.focal-grid-compact .k-hover td,
+.focal-grid-compact .k-table-tbody tr:hover,
+.focal-grid-compact .k-table-tbody tr:hover td,
+.focal-grid-compact .k-table-tbody .k-master-row:hover,
+.focal-grid-compact .k-table-tbody .k-master-row:hover td {
+  background-color: #ffffff !important;
+}
+
+.focal-grid-compact {
+  --kendo-grid-row-hover-bg: #ffffff;
+  --kendo-table-hover-bg: #ffffff;
+}
+  .tabBox:has(.gridSupplementaryContainer) {
+    padding: 20px 0px;
   }
 
-  /* Selection fix */
+  .categorychecklistHeaderGridContainer {
+    margin-top: 16px;
+  }
+
+  .MuiAlert-filledSuccess {
+    background-color: #81bc00 !important;
+  }
+
+  .Savebtn {
+    text-transform: none;
+    align-items: center;
+    height: 32px;
+  }
+
+  .CancelBtn {
+    text-transform: none;
+    height: 32px;
+    align-items: center;
+  }
+
   .k-grid tr.k-selected,
+  .k-grid tr.k-state-selected,
   .k-grid tr.k-focus {
     background-color: transparent !important;
   }
@@ -131,30 +141,294 @@ $text-size-default: 14px;
     background-color: transparent !important;
   }
 
-  /* Hide toolbar icons */
+  #kgrid-oss-checklistType,
+  #kgrid-oss-admin-table-errorCode1,
+  #kgrid-oss-admin-table-errorCode1-itar,
+  #kgrid-oss-admin-table-errorCode2,
+  #kgrid-oss-admin-table-errorCode3,
+  #kgrid-oss-admin-table-category,
+  #kgrid-oss-admin-table-category-type,
+  #kgrid-oss-admin-table-reasonCode,
+  #kgrid-oss-admin-table-reasonCode-itar {
+    .k-table {
+      width: 100% !important;
+    }
+
+    td,
+    th {
+      color: $text-default;
+    }
+
+    th {
+      // background-color: $table-header-bg;
+      margin: 0 !important;
+      padding-block: 0 !important;
+      height: $table-row-height !important;
+
+      .k-cell-inner,
+      .k-checkbox-wrap {
+        margin: 0 !important;
+        margin-block: 0 !important;
+        margin-inline: 0 !important;
+      }
+
+      .k-checkbox-wrap {
+        margin: 0 0 7px -9px !important;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+    }
+
+    .k-table-alt-row {
+      background-color: $table-bg-alt-row !important;
+    }
+
+    tbody .checkbox-background {
+      display: flex;
+      justify-content: center;
+
+      input {
+        margin-left: 0 !important;
+      }
+    }
+
+    tbody tr:hover {
+      background-color: $table-row-bg-hover !important;
+    }
+
+    tbody tr td {
+      box-sizing: border-box !important;
+      border-bottom: 1px solid $table-row-border-col !important;
+      padding: 0 8px !important;
+      height: $table-row-height !important;
+      padding-block: 0 !important;
+
+      .Mui-error>fieldset {
+        border-color: #ea002a !important;
+      }
+    }
+
+    .k-toolbar.k-grid-toolbar button.k-table-row .MuiTypography-button {
+      padding-top: 2px;
+    }
+  }
+
   .k-button-md.k-icon-button {
     display: none !important;
   }
-}
 
-/* External styles */
+  .k-button .k-button-md .k-button-solid .k-button-solid-base .k-rounded-md .k-icon-button .k-toolbar-prev .k-disabled {
+    display: none !important;
+  }
+
+  .k-button .k-button-md .k-button-solid .k-button-solid-base .k-rounded-md .k-icon-button .k-toolbar-next {
+    display: none !important;
+  }
+
+  .k-toolbar-separator .k-separator .k-toolbar-button-separator {
+    display: none !important;
+  }
+
+  .kgrid-oss-checklistType>.k-cell-inner>.k-link,
+  .kgrid-oss-admin-table-errorCode1>.k-cell-inner>.k-link,
+  .kgrid-oss-admin-table-errorCode1-itar>.k-cell-inner>.k-link {
+    height: $table-row-height !important;
+    padding: 0 !important;
+
+    >.k-column-title {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-start !important;
+      height: 100% !important;
+      width: 100% !important;
+    }
+  }
+
+  input[type="checkbox"]:disabled {
+    opacity: 1 !important;
+  }
+}
 
 .css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
   background-color: #fafafa !important;
+}
+
+.dc-fpq-details-admin-categorytypemodal-checkboxes {
+  display: flex;
+}
+
+.dc-fpq-details-admin-categorytypemodal-checkboxes-inner {
+  display: flex;
+  flex-grow: 1;
+  justify-content: center;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  overflow: hidden;
+}
+
+.dc-easa-input>.Mui-error>fieldset {
+  border-color: #ea002a !important;
+}
+
+.dc-easa-input>.Mui-error:hover>fieldset {
+  border-color: #ea002a !important;
+}
+
+#kgrid-oss-admin-table-category,
+#kgrid-oss-admin-table-category-type,
+#kgrid-oss-admin-table-reasonCode,
+#kgrid-oss-admin-table-reasonCode-itar {
+  overflow: hidden;
+  max-height: calc(100vh - 320px);
+}
+#kgrid-oss-checklistType td .saveBtn {
+  padding: 0.2em 1.5em !important;
+  height: 32px !important;
+  border: 1px solid #a19b9b !important;
+  color: #5a5a5a !important;
+  font-weight: bold;
+  border-radius: 4px !important;
+  cursor: pointer;
+  background: #ffffff;
+}
+
+#kgrid-oss-admin-table-category-role-element-id,
+#kgrid-oss-admin-table-category-type-role-element-id,
+#kgrid-oss-admin-table-reasonCode-role-element-id {
+  overflow: auto;
+}
+
+.fpq-details-cattype-add-select>div {
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+
+.fpq-details-category-label {
+  text-wrap: nowrap;
+  margin: 16px 16px 16px 0px;
+  width: fit-content;
+}
+
+.fpq-details-category-box {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+}
+
+.fpq-details-category-box>div {
+  width: fit-content;
+}
+
+.dc-fpq-details-admin-categorytypemodal-checkboxes {
+  display: flex;
+}
+
+.dc-fpq-details-admin-categorytypemodal-checkboxes-inner {
+  display: flex;
+  flex-grow: 1;
+  justify-content: center;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 8px;
+  overflow: hidden;
+}
+
+.dc-easa-input>.Mui-error>fieldset {
+  border-color: #ea002a !important;
+}
+
+.dc-easa-input>.Mui-error:hover>fieldset {
+  border-color: #ea002a !important;
+}
+
+#kgrid-oss-admin-table-category,
+#kgrid-oss-admin-table-category-type,
+#kgrid-oss-admin-table-reasonCode,
+#kgrid-oss-admin-table-reasonCode-itar {
+  overflow: hidden;
+  max-height: calc(100vh - 320px);
+}
+
+
+
+.org-grid-compact.k-grid>.k-grid-aria-root .k-table-tbody>tr.k-master-row>td,
+.org-grid-compact.k-grid>.k-grid-container .k-table-tbody>tr.k-master-row>td,
+.org-grid-compact.k-grid>.k-grid-content .k-table-tbody>tr.k-master-row>td {
+  padding-block: 1px !important;
+  padding-inline: 6px !important;
+  line-height: 2.2;
+}
+
+.focal-grid-compact.k-grid>.k-grid-aria-root .k-table-tbody>tr.k-master-row>td,
+.focal-grid-compact.k-grid>.k-grid-container .k-table-tbody>tr.k-master-row>td,
+.focal-grid-compact.k-grid>.k-grid-content .k-table-tbody>tr.k-master-row>td {
+  padding-block: 6px !important;
+  padding-inline: 6px !important;
+  line-height: 1.2;
+}
+
+.focal-grid-compact .k-hierarchy-cell .k-icon,
+.focal-grid-compact .k-hierarchy-cell .k-svg-icon {
+  display: none !important;
 }
 
 .admin-topbarmain-height-grid {
   height: 130px !important;
 }
 
+.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
+  background-color: #fafafa !important;
+}
+
 .admin-supplier-topbarmain-height-grid {
   height: 70px !important;
 }
 
-/* Compact spacing */
 .focal-grid td,
 .focal-grid .k-table-td {
-  padding-block: 0.5rem !important;
-  padding-inline: 0.75rem !important;
+  padding-block: var(--kendo-spacing-2, .5rem) !important;
+  padding-inline: var(--kendo-spacing-3, .75rem) !important;
   line-height: 1.4;
+}
+
+.org-grid-compact .k-hierarchy-cell .k-icon,
+.org-grid-compact .k-hierarchy-cell .k-svg-icon {
+  display: none !important;
+}
+
+
+#kgrid-oss-admin-table-category-role-element-id,
+#kgrid-oss-admin-table-category-type-role-element-id,
+#kgrid-oss-admin-table-reasonCode-role-element-id {
+  overflow: auto;
+}
+
+.fpq-details-cattype-add-select>div {
+  padding-top: 0px;
+  padding-bottom: 0px;
+}
+
+.fpq-details-category-label {
+  text-wrap: nowrap;
+  margin: 16px 16px 16px 0px;
+  width: fit-content;
+}
+
+.fpq-details-category-box {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+}
+
+.fpq-details-category-box>div {
+  width: fit-content;
+}
+
+.dc-easa-input>div>input,
+.dc-fpqdetails-selectoptions-dropdown>div {
+  padding-left: 16px;
 }
