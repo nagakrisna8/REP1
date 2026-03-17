@@ -1,434 +1,423 @@
-$text-default: #253746;
-$table-header-bg: #ffffff;
-$table-bg-alt-row: #eff6fa;
-$table-row-bg-hover: #dce2e6;
-$table-row-border-col: #ededed;
-$grid-topbar-height: 48px;
-$table-row-height: 32px;
-$text-size-default: 14px;
+import React, { memo, useState, useEffect, useRef } from "react";
+import { Autocomplete, Button, Checkbox, ListItemText, TextField, Typography } from "@mui/material";
+import { useDispatch } from "react-redux";
+import EasaListService from "../../EasaRegisterListService";
+import "./FocalForm.scss";
+import { MasterDataItem } from "../AdminModal";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
-.EASA-Admin-table-maintenance {
-  font-size: $text-size-default;
-
-  .EASA-Admin-table-maintenance-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    margin-left: 22px;
-    //margin-top: 8px;
-    //margin-bottom: 16px;
-    gap: 8px;
-    color: $text-default;
-  }
-
-  .MuiPopover-paper {
-    height: 170px !important;
-  }
-
-  #admin-table-page-selector,
-  #admin-table-categorytype-selector {
-    // min-width: 180px;
-    // max-width: 180px;
-    margin: 0px;
-    padding: 4px 8px;
-  }
-
-  #admin-table-categorytype-selector {
-    width: 147px;
-    margin: 0px;
-    padding: 4px 8px;
-  }
-
-  .EASA-Admin-table-maintenance-section {
-    margin-top: 16px;
-  }
-
-  .hideCls {
-    display: none !important;
-  }
-
-  #kgrid-oss-checklistType,
-  #kgrid-oss-admin-table-errorCode1,
-  #kgrid-oss-admin-table-errorCode1-itar,
-  #kgrid-oss-admin-table-errorCode2,
-  #kgrid-oss-admin-table-errorCode3,
-  #kgrid-oss-admin-table-category,
-  #kgrid-oss-admin-table-category-type,
-  #kgrid-oss-admin-table-reasonCode,
-  #kgrid-oss-admin-table-reasonCode-itar {
-    min-height: 130px;
-    max-height: inherit !important;
-  }
-
-  #kgrid-oss-checklistType td .deleteBtn,
-  #kgrid-oss-admin-table-errorCode1 td .deleteBtn,
-  #kgrid-oss-admin-table-errorCode1-itar td .deleteBtn,
-  #kgrid-oss-admin-table-errorCode2 td .deleteBtn,
-  #kgrid-oss-admin-table-errorCode3 td .deleteBtn,
-  #kgrid-oss-admin-table-category td .deleteBtn,
-  #kgrid-oss-admin-table-category-type td .deleteBtn,
-  #kgrid-oss-admin-table-reasonCode td .deleteBtn,
-  #kgrid-oss-admin-table-reasonCode-itar td .deleteBtn {
-    padding: 0.2em 1.5em !important;
-    height: 32px !important;
-    border: 1px solid #a19b9b !important;
-    color: #5a5a5a !important;
-    font-weight: bold;
-    border-radius: 4px !important;
-    cursor: pointer;
-    background: #ffffff;
-  }
-
-  #kgrid-oss-checklistType.k-table-tbody .k-table-row .k-dropdownlist,
-  #kgrid-oss-admin-table-errorCode1.k-table-tbody .k-table-row .k-dropdownlist,
-  #kgrid-oss-admin-table-errorCode1-itar.k-table-tbody .k-table-row .k-dropdownlist,
-  #kgrid-oss-admin-table-errorCode2.k-table-tbody .k-table-row .k-dropdownlist,
-  #kgrid-oss-admin-table-errorCode3.k-table-tbody .k-table-row .k-dropdownlist,
-  #kgrid-oss-admin-table-category.k-table-tbody .k-table-row .k-dropdownlist #kgrid-oss-admin-table-category-type.k-table-tbody .k-table-row .k-dropdownlist #kgrid-oss-admin-table-reasonCode.k-table-tbody .k-table-row .k-dropdownlist,
-  #kgrid-oss-admin-table-reasonCode-itar.k-table-tbody .k-table-row .k-dropdownlist {
-    background-color: rgba(0, 0, 0, 0);
-    background-image: none;
-    border: 1px solid rgba(118, 118, 118, 0.3);
-    padding: 3px 0px;
-    height: 28px;
-    margin-block: 2px;
-  }
-.focal-grid-compact .k-hover,
-.focal-grid-compact .k-hover td,
-.focal-grid-compact .k-table-tbody tr:hover,
-.focal-grid-compact .k-table-tbody tr:hover td,
-.focal-grid-compact .k-table-tbody .k-master-row:hover,
-.focal-grid-compact .k-table-tbody .k-master-row:hover td {
-  background-color: #ffffff !important;
+interface FocalData {
+    ID?: number;
+    NAME?: string;
+    ADDRESS?: string;
+    PHONENO?: number;
+    EMAIL?: string;
+    POSITION?: string;
+    TITLE?: string;
+    ISACTIVE?: boolean;
 }
 
-.focal-grid-compact {
-  --kendo-grid-row-hover-bg: #ffffff;
-  --kendo-table-hover-bg: #ffffff;
-}
-  .tabBox:has(.gridSupplementaryContainer) {
-    padding: 20px 0px;
-  }
-
-  .categorychecklistHeaderGridContainer {
-    margin-top: 16px;
-  }
-
-  .MuiAlert-filledSuccess {
-    background-color: #81bc00 !important;
-  }
-
-  .Savebtn {
-    text-transform: none;
-    align-items: center;
-    height: 32px;
-  }
-
-  .CancelBtn {
-    text-transform: none;
-    height: 32px;
-    align-items: center;
-  }
-
-  .k-grid tr.k-selected,
-  .k-grid tr.k-state-selected,
-  .k-grid tr.k-focus {
-    background-color: transparent !important;
-  }
-
-  .k-grid td.k-focus {
-    box-shadow: none !important;
-    background-color: transparent !important;
-  }
-
-  #kgrid-oss-checklistType,
-  #kgrid-oss-admin-table-errorCode1,
-  #kgrid-oss-admin-table-errorCode1-itar,
-  #kgrid-oss-admin-table-errorCode2,
-  #kgrid-oss-admin-table-errorCode3,
-  #kgrid-oss-admin-table-category,
-  #kgrid-oss-admin-table-category-type,
-  #kgrid-oss-admin-table-reasonCode,
-  #kgrid-oss-admin-table-reasonCode-itar {
-    .k-table {
-      width: 100% !important;
-    }
-
-    td,
-    th {
-      color: $text-default;
-    }
-
-    th {
-      // background-color: $table-header-bg;
-      margin: 0 !important;
-      padding-block: 0 !important;
-      height: $table-row-height !important;
-
-      .k-cell-inner,
-      .k-checkbox-wrap {
-        margin: 0 !important;
-        margin-block: 0 !important;
-        margin-inline: 0 !important;
-      }
-
-      .k-checkbox-wrap {
-        margin: 0 0 7px -9px !important;
-        width: 100%;
-        display: flex;
-        justify-content: center;
-      }
-    }
-
-    .k-table-alt-row {
-      background-color: $table-bg-alt-row !important;
-    }
-
-    tbody .checkbox-background {
-      display: flex;
-      justify-content: center;
-
-      input {
-        margin-left: 0 !important;
-      }
-    }
-
-    tbody tr:hover {
-      background-color: $table-row-bg-hover !important;
-    }
-
-    tbody tr td {
-      box-sizing: border-box !important;
-      border-bottom: 1px solid $table-row-border-col !important;
-      padding: 0 8px !important;
-      height: $table-row-height !important;
-      padding-block: 0 !important;
-
-      .Mui-error>fieldset {
-        border-color: #ea002a !important;
-      }
-    }
-
-    .k-toolbar.k-grid-toolbar button.k-table-row .MuiTypography-button {
-      padding-top: 2px;
-    }
-  }
-
-  .k-button-md.k-icon-button {
-    display: none !important;
-  }
-
-  .k-button .k-button-md .k-button-solid .k-button-solid-base .k-rounded-md .k-icon-button .k-toolbar-prev .k-disabled {
-    display: none !important;
-  }
-
-  .k-button .k-button-md .k-button-solid .k-button-solid-base .k-rounded-md .k-icon-button .k-toolbar-next {
-    display: none !important;
-  }
-
-  .k-toolbar-separator .k-separator .k-toolbar-button-separator {
-    display: none !important;
-  }
-
-  .kgrid-oss-checklistType>.k-cell-inner>.k-link,
-  .kgrid-oss-admin-table-errorCode1>.k-cell-inner>.k-link,
-  .kgrid-oss-admin-table-errorCode1-itar>.k-cell-inner>.k-link {
-    height: $table-row-height !important;
-    padding: 0 !important;
-
-    >.k-column-title {
-      display: flex !important;
-      align-items: center !important;
-      justify-content: flex-start !important;
-      height: 100% !important;
-      width: 100% !important;
-    }
-  }
-
-  input[type="checkbox"]:disabled {
-    opacity: 1 !important;
-  }
+interface FocalFormProps {
+    focalData?: FocalData;
+    saveFocal?: () => void;
+    fetchFocal: () => void;
+    focalList?: FocalData[];
+    cancelFocal?: (id: number) => void;
+    savedFormData?: any;
+    onFormChange?: (data: any) => void;
+    clearFormData?: () => void;
 }
 
-.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
-  background-color: #fafafa !important;
-}
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
 
-.dc-fpq-details-admin-categorytypemodal-checkboxes {
-  display: flex;
-}
+    const dispatch = useDispatch();
+    const debounceTimer = useRef<any>(null);
+    const initializedRef = useRef(false);
 
-.dc-fpq-details-admin-categorytypemodal-checkboxes-inner {
-  display: flex;
-  flex-grow: 1;
-  justify-content: center;
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 8px;
-  overflow: hidden;
-}
+    const [formData, setFormData] = useState(() => {
+        if (savedFormData) {
+            return savedFormData;
+        }
+        if (focalData) {
+            return {
+                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
+                name: focalData.NAME ?? "",
+                address: focalData.ADDRESS ?? "",
+                phone: String(focalData.PHONENO ?? ""),
+                email: focalData.EMAIL ?? "",
+                position: focalData.POSITION ?? "",
+                title: focalData.TITLE ?? "",
+                isActive: focalData.ISACTIVE ?? false
+            };
+        }
+        return {
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false
+        };
+    });
 
-.dc-easa-input>.Mui-error>fieldset {
-  border-color: #ea002a !important;
-}
+    useEffect(() => {
+        return () => {
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        };
+    }, []);
 
-.dc-easa-input>.Mui-error:hover>fieldset {
-  border-color: #ea002a !important;
-}
+    const handleChange = (e: any) => {
+        const updated = {
+            ...formData,
+            [e.target.name]: e.target.value
+        };
+        setFormData(updated);
 
-#kgrid-oss-admin-table-category,
-#kgrid-oss-admin-table-category-type,
-#kgrid-oss-admin-table-reasonCode,
-#kgrid-oss-admin-table-reasonCode-itar {
-  overflow: hidden;
-  max-height: calc(100vh - 320px);
-}
-#kgrid-oss-checklistType td .saveBtn {
-  padding: 0.2em 1.5em !important;
-  height: 32px !important;
-  border: 1px solid #a19b9b !important;
-  color: #5a5a5a !important;
-  font-weight: bold;
-  border-radius: 4px !important;
-  cursor: pointer;
-  background: #ffffff;
-}
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            onFormChange?.(updated);
+        }, 400);
+    };
 
-#kgrid-oss-admin-table-category-role-element-id,
-#kgrid-oss-admin-table-category-type-role-element-id,
-#kgrid-oss-admin-table-reasonCode-role-element-id {
-  overflow: auto;
-}
+    const handleCancel = () => {
+        clearFormData?.();
 
-.fpq-details-cattype-add-select>div {
-  padding-top: 0px;
-  padding-bottom: 0px;
-}
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-.fpq-details-category-label {
-  text-wrap: nowrap;
-  margin: 16px 16px 16px 0px;
-  width: fit-content;
-}
+        if ((focalData as any)?.newFlag) {
+            setFormData({
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: false
+            });
+        } else {
+            setFormData({
+                id: focalData?.ID ?? 0,
+                name: focalData?.NAME ?? "",
+                address: focalData?.ADDRESS ?? "",
+                phone: String(focalData?.PHONENO ?? ""),
+                email: focalData?.EMAIL ?? "",
+                position: focalData?.POSITION ?? "",
+                title: focalData?.TITLE ?? "",
+                isActive: focalData?.ISACTIVE ?? false
+            });
+        }
 
-.fpq-details-category-box {
-  display: inline-flex;
-  width: 100%;
-  align-items: center;
-}
+        if (cancelFocal && focalData?.ID !== undefined) {
+            cancelFocal(focalData.ID);
+        }
+    };
 
-.fpq-details-category-box>div {
-  width: fit-content;
-}
+    const handleSave = async () => {
 
-.dc-fpq-details-admin-categorytypemodal-checkboxes {
-  display: flex;
-}
+        if (!formData.name || formData.name.trim() === "") {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Focal Name is required."
+            }));
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (formData.email && !emailRegex.test(formData.email)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Email Address"
+            }));
+            return;
+        }
+        let isDuplicate = false;
+        if (formData.email && formData.email.trim() !== "") {
+            isDuplicate = focalList?.some(
+                (item: FocalData) =>
+                    item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
+                    item.ID !== formData.id
+            );
+        } else {
+            isDuplicate = focalList?.some(
+                (item: FocalData) =>
+                    item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
+                    item.ID !== formData.id
+            );
+        }
 
-.dc-fpq-details-admin-categorytypemodal-checkboxes-inner {
-  display: flex;
-  flex-grow: 1;
-  justify-content: center;
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 16px;
-  padding-top: 8px;
-  overflow: hidden;
-}
+        if (isDuplicate) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: formData.email
+                    ? "Email must be unique."
+                    : "Focal Name must be unique."
+            }));
+            return;
+        }
 
-.dc-easa-input>.Mui-error>fieldset {
-  border-color: #ea002a !important;
-}
+        if (formData.phone && !/^\d+$/.test(formData.phone)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Phone Number"
+            }));
+            return;
+        }
 
-.dc-easa-input>.Mui-error:hover>fieldset {
-  border-color: #ea002a !important;
-}
+        const items: MasterDataItem[] = [];
 
-#kgrid-oss-admin-table-category,
-#kgrid-oss-admin-table-category-type,
-#kgrid-oss-admin-table-reasonCode,
-#kgrid-oss-admin-table-reasonCode-itar {
-  overflow: hidden;
-  max-height: calc(100vh - 320px);
-}
+        items.push({
+            Id: formData.id ?? 0,
+            OperationType: formData.id ? "update" : "add",
+            Name: formData.name.trim(),
+            Description: "",
+            IsActive: formData.isActive ? "Y" : "N",
+            Notes: "",
+            Address: formData.address ?? "",
+            Department: formData.position ?? "",
+            Phone: formData.phone ?? "",
+            Email: formData.email ?? "",
+            Title: formData.title ?? "",
+            orgTypeId: 0
+        });
 
+        const payload = {
+            MasterDataType: "Focal Management",
+            Items: items
+        };
 
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error in saving the data."
+                }));
+                return;
+            }
 
-.org-grid-compact.k-grid>.k-grid-aria-root .k-table-tbody>tr.k-master-row>td,
-.org-grid-compact.k-grid>.k-grid-container .k-table-tbody>tr.k-master-row>td,
-.org-grid-compact.k-grid>.k-grid-content .k-table-tbody>tr.k-master-row>td {
-  padding-block: 1px !important;
-  padding-inline: 6px !important;
-  line-height: 2.2;
-}
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Focal saved successfully."
+            }));
 
-.focal-grid-compact.k-grid>.k-grid-aria-root .k-table-tbody>tr.k-master-row>td,
-.focal-grid-compact.k-grid>.k-grid-container .k-table-tbody>tr.k-master-row>td,
-.focal-grid-compact.k-grid>.k-grid-content .k-table-tbody>tr.k-master-row>td {
-  padding-block: 6px !important;
-  padding-inline: 6px !important;
-  line-height: 1.2;
-}
+            fetchFocal?.();
+            clearFormData?.();
+            handleCancel();
 
-.focal-grid-compact .k-hierarchy-cell .k-icon,
-.focal-grid-compact .k-hierarchy-cell .k-svg-icon {
-  display: none !important;
-}
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Focal."
+            }));
+            console.error("Error saving focal:", error);
+        }
+    };
 
-.admin-topbarmain-height-grid {
-  height: 130px !important;
-}
+    return (
+        <div style={{ padding: "10px" }}>
 
-.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input.css-106ttss-MuiSelect-select-MuiInputBase-input-MuiOutlinedInput-input {
-  background-color: #fafafa !important;
-}
+            <div className="form-header">
+                {formData.id ? "Edit Focal" : "Add Focal"}
+            </div>
 
-.admin-supplier-topbarmain-height-grid {
-  height: 70px !important;
-}
+            <div className="form-grid">
 
-.focal-grid td,
-.focal-grid .k-table-td {
-  padding-block: var(--kendo-spacing-2, .5rem) !important;
-  padding-inline: var(--kendo-spacing-3, .75rem) !important;
-  line-height: 1.4;
-}
+                {/* LEFT SIDE */}
+                <div className="form-column">
 
-.org-grid-compact .k-hierarchy-cell .k-icon,
-.org-grid-compact .k-hierarchy-cell .k-svg-icon {
-  display: none !important;
-}
+                    <div className="form-row">
+                        <label>Focal Name</label>
+                        <TextField
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
+                    <div className="form-row">
+                        <label>Address</label>
+                        <TextField
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
-#kgrid-oss-admin-table-category-role-element-id,
-#kgrid-oss-admin-table-category-type-role-element-id,
-#kgrid-oss-admin-table-reasonCode-role-element-id {
-  overflow: auto;
-}
+                    <div className="form-row">
+                        <label>Position</label>
+                        <TextField
+                            name="position"
+                            value={formData.position}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
-.fpq-details-cattype-add-select>div {
-  padding-top: 0px;
-  padding-bottom: 0px;
-}
+                </div>
 
-.fpq-details-category-label {
-  text-wrap: nowrap;
-  margin: 16px 16px 16px 0px;
-  width: fit-content;
-}
+                {/* RIGHT SIDE */}
+                <div className="form-column">
 
-.fpq-details-category-box {
-  display: inline-flex;
-  width: 100%;
-  align-items: center;
-}
+                    <div className="form-row">
+                        <label>Phone Number</label>
+                        <TextField
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
-.fpq-details-category-box>div {
-  width: fit-content;
-}
+                    <div className="form-row">
+                        <label>Email</label>
+                        <TextField
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
 
-.dc-easa-input>div>input,
-.dc-fpqdetails-selectoptions-dropdown>div {
-  padding-left: 16px;
-}
+                    <div className="form-row">
+                        <label>Title</label>
+                        <TextField
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+                    <div className="subsystem-dropdown-container">
+                        <span className="gen-label-input-spacing gen-subsystems-container">
+                            <label className="formLabel gen-label">
+                                Sub-System
+                            </label>
+                            <Autocomplete
+                                multiple
+                                id={`select-${index}`}
+                                className="dropdowns gen-inputBox-height gen-custom-dropdown"
+                                options={dropdownOptions?.SubSystems || []}
+                                noOptionsText="No option available"
+                                disableCloseOnSelect
+                                openOnFocus
+                                getOptionLabel={(option) =>
+                                    option.MasterValue
+                                }
+                                value={
+                                    tab.SubSystemsList
+                                        ? dropdownOptions.SubSystems.filter(
+                                            (option) =>
+                                                tab?.SubSystemsList?.includes(
+                                                    option.MasterValue
+                                                )
+                                        )
+                                        : []
+                                }
+                                renderTags={(value) => {
+                                    const selectedSubSystems = value
+                                        .map((option) => option.MasterValue)
+                                        .join(", ");
+                                    return (
+                                        <span
+                                            style={{
+                                                fontSize: "14px",
+                                                color: "#253746",
+                                                borderRadius: "4px",
+                                                whiteSpace: "nowrap",
+                                                overflow: "hidden",
+                                                textOverflow: "ellipsis",
+                                            }}
+                                            title={selectedSubSystems}
+                                        >
+                                            {selectedSubSystems}
+                                        </span>
+                                    );
+                                }}
+                                sx={{
+                                    "& .MuiOutlinedInput-root": {
+                                        height: "32px",
+                                    },
+                                    "& .MuiAutocomplete-inputRoot": {
+                                        flexWrap: "initial",
+                                    },
+                                }}
+                                onChange={handleSubSytemChange}
+                                renderOption={(
+                                    props,
+                                    option,
+                                    { selected }
+                                ) => {
+                                    const { ...optionProps } = props;
+                                    return (
+                                        <li
+                                            {...optionProps}
+                                            style={{
+                                                padding: 0,
+                                                height: 32,
+                                                fontSize: "14px",
+                                                color: "#253746",
+                                            }}
+                                        >
+                                            <Checkbox
+                                                size="small"
+                                                checked={selected}
+                                                color="default"
+                                            />
+                                            <ListItemText
+                                                primary={option.MasterValue}
+                                                primaryTypographyProps={{
+                                                    fontSize: "14px",
+                                                    color: "#253746",
+                                                    fontWeight: "normal",
+                                                }}
+                                            />
+                                        </li>
+                                    );
+                                }}
+                                disablePortal
+                                renderInput={(params) => (
+                                    <TextField
+                                        {...params}
+                                        InputProps={{
+                                            ...params.InputProps,
+                                            inputProps: { ...params.inputProps },
+                                        }}
+                                    />
+                                )}
+                            />                           
+                        </span>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div className="form-actions">
+                <Typography id="modal-modal-btn" className='buttonSection' sx={{ mt: 2 }} textAlign={'end'} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingBlock: '0px', paddingInline: '0px', marginTop: '10px' }}>
+                    <Button variant="outlined" size="small" onClick={handleCancel} className={"cancelButtonUserDefined"}>Cancel</Button>
+                    <Button variant="contained" size="small" onClick={handleSave} className="deleteButton">Save</Button>
+                </Typography>
+            </div>
+
+        </div>
+    );
+});
+
+export default FocalForm;
