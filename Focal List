@@ -16,23 +16,19 @@ interface FocalData {
 
 interface FocalListProps {
   orgName: number;
-  orgType:number
+  orgType: number
 }
-const focalCache: { [key: string]: FocalData[] } = {};
 
-const FocalList: React.FC<FocalListProps> = memo(({ orgName , orgType}) => {
+const FocalList: React.FC<FocalListProps> = memo(({ orgName, orgType }) => {
 
   const [focalListData, setFocalListData] = useState<FocalData[]>([]);
   const [dataState, setDataState] = useState<State>({});
   const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
   const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
 
-  const fetchFocalList = async (organization: number, orgType:number) => {
+  const fetchFocalList = async (organization: number, orgType: number) => {
 
-    if (focalCache[organization]) {
-      setFocalListData(focalCache[organization]);
-      return;
-    }
+
 
     const masterdataType = 4;
 
@@ -40,8 +36,8 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName , orgType}) => {
 
       const response =
         await EasaListService.getAdminMasterDetailsTypeFocals(
-          masterdataType, 
-          orgType,                   
+          masterdataType,
+          orgType,
           organization,
         );
 
@@ -52,9 +48,6 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName , orgType}) => {
         DEPARTMENT: x.DEPARTMENT,
         EMAIL: x.EMAIL
       }));
-
-      // store in global cache
-      focalCache[organization] = result;
 
       setFocalListData(result);
 
@@ -89,9 +82,9 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName , orgType}) => {
 
     if (!orgName) return;
 
-    fetchFocalList(orgType,orgName);
+    fetchFocalList(orgType, orgName);
 
-  }, [orgName]);
+  }, [orgName, orgType]);
 
   return (
     <div className="focal-container">
