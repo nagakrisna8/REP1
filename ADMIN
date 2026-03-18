@@ -86,7 +86,7 @@ const TableMaintenance: React.FC = () => {
             else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
             else if (selectedPage === 'Organization Type') fetchOrganizationType();
             else if (selectedPage === 'Organization') fetchOrganization(selectedOrgId);
-            else if (selectedPage === 'Focal Management') fetchFocal();
+            else if (selectedPage === 'Focal Management') fetchFocal(selectedOrganizationId,selectedOrgId);
         }
 
         setDirtyFlag(false);
@@ -107,7 +107,7 @@ const TableMaintenance: React.FC = () => {
     const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
     const [focalActiveItem, setFocalActiveItem] = useState<FocalMasterTable | null>(null);
     const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
-    const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(organizationData ? organizationData[0]?.ORGANIZATIONNAME : "");
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<number>(1);
     // Organization Type handlers
     const CreateOrganizationType = () => {
         const newOrganizatonType: OrganizationTypeMasterTable = {
@@ -1044,9 +1044,9 @@ const TableMaintenance: React.FC = () => {
             }));
         }
     };
-    const fetchFocal = (orgName:string, orgTypeId:number) => {
+    const fetchFocal = (orgName:number, orgTypeId:number) => {
         let masterdataType = 4;
-        EasaListService.getAdminMasterDetailsTypeFocalsList(masterdataType, orgName, orgTypeId)
+        EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
             .then((response) => {
                 let result: FocalMasterTable[] = response?.data.map(x => ({
                     ID: x.ID,
@@ -1166,7 +1166,7 @@ const TableMaintenance: React.FC = () => {
         console.log(event, 'event');
         const orgId = event.target.value;
         setSelectedOrganizationId(orgId);
-        fetchFocal(selectedOrgId, selectedOrganizationId)
+        fetchFocal(selectedOrgId,selectedOrganizationId)
     }
     useEffect(() => {
         if (selectedOrgId) {
@@ -1180,7 +1180,7 @@ const TableMaintenance: React.FC = () => {
         fetchOrganizationType();
         fetchSupplierCategory();
         fetchSupplierActivity();
-        fetchFocal();
+         fetchFocal(selectedOrgId,selectedOrganizationId)
     }, []);
     React.useEffect(() => {
         const reversed = [...organizationTypeData].reverse();
@@ -1304,6 +1304,7 @@ const TableMaintenance: React.FC = () => {
                             saveOrganization={saveOrganization}
                             dragStart={organizationDragStart}
                             reorder={organizationMasteReorder}
+                            selectedOrgId={selectedOrgId}
                             sortBy={sortBy.supplierActivity}
                             handleSortByChange={handleSortByChange}
                         />
