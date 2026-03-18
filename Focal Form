@@ -1,9 +1,9 @@
 import React, { memo, useState, useEffect, useRef } from "react";
-import { Autocomplete, Button, Checkbox, ListItemText, TextField, Typography } from "@mui/material";
+import { Button, TextField, Typography } from "@mui/material";
 import { useDispatch } from "react-redux";
 import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
-import { MasterDataItem, OrganizationTableData } from "../AdminModal";
+import { MasterDataItem } from "../AdminModal";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
 interface FocalData {
@@ -19,7 +19,6 @@ interface FocalData {
 
 interface FocalFormProps {
     focalData?: FocalData;
-    organizationData: OrganizationTableData[];
     saveFocal?: () => void;
     fetchFocal: () => void;
     focalList?: FocalData[];
@@ -29,11 +28,12 @@ interface FocalFormProps {
     clearFormData?: () => void;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, organizationData }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
 
     const dispatch = useDispatch();
     const debounceTimer = useRef<any>(null);
     const initializedRef = useRef(false);
+
     const [formData, setFormData] = useState(() => {
         if (savedFormData) {
             return savedFormData;
@@ -221,7 +221,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
-    console.log(organizationData, 'organizationData')
+
     return (
         <div style={{ padding: "10px" }}>
 
@@ -303,106 +303,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                             size="small"
                             fullWidth
                         />
-                    </div>
-                    <div className="subsystem-dropdown-container">
-                        <span className="gen-label-input-spacing gen-subsystems-container">
-                            <label className="formLabel gen-label">
-                                Sub-System
-                            </label>
-                             <Autocomplete
-                                multiple
-                                id={`select-${index}`}
-                                className="dropdowns gen-inputBox-height gen-custom-dropdown"
-                                options={organizationData || []}
-                                noOptionsText="No option available"
-                                disableCloseOnSelect
-                                openOnFocus
-                                getOptionLabel={(option) =>
-                                    option.MasterValue
-                                }
-                                value={
-                                    tab.SubSystemsList
-                                        ? dropdownOptions.SubSystems.filter(
-                                            (option) =>
-                                                tab?.SubSystemsList?.includes(
-                                                    option.MasterValue
-                                                )
-                                        )
-                                        : []
-                                }
-                                renderTags={(value) => {
-                                    const selectedSubSystems = value
-                                        .map((option) => option.MasterValue)
-                                        .join(", ");
-                                    return (
-                                        <span
-                                            style={{
-                                                fontSize: "14px",
-                                                color: "#253746",
-                                                borderRadius: "4px",
-                                                whiteSpace: "nowrap",
-                                                overflow: "hidden",
-                                                textOverflow: "ellipsis",
-                                            }}
-                                            title={selectedSubSystems}
-                                        >
-                                            {selectedSubSystems}
-                                        </span>
-                                    );
-                                }}
-                                sx={{
-                                    "& .MuiOutlinedInput-root": {
-                                        height: "32px",
-                                    },
-                                    "& .MuiAutocomplete-inputRoot": {
-                                        flexWrap: "initial",
-                                    },
-                                }}
-                                onChange={handleSubSytemChange}
-                                renderOption={(
-                                    props,
-                                    option,
-                                    { selected }
-                                ) => {
-                                    const { ...optionProps } = props;
-                                    return (
-                                        <li
-                                            {...optionProps}
-                                            style={{
-                                                padding: 0,
-                                                height: 32,
-                                                fontSize: "14px",
-                                                color: "#253746",
-                                            }}
-                                        >
-                                            <Checkbox
-                                                size="small"
-                                                checked={selected}
-                                                color="default"
-                                            />
-                                            <ListItemText
-                                                primary={option.MasterValue}
-                                                primaryTypographyProps={{
-                                                    fontSize: "14px",
-                                                    color: "#253746",
-                                                    fontWeight: "normal",
-                                                }}
-                                            />
-                                        </li>
-                                    );
-                                }}
-                                disablePortal
-                                renderInput={(params) => (
-                                    <TextField
-                                        {...params}
-                                        InputProps={{
-                                            ...params.InputProps,
-                                            inputProps: { ...params.inputProps },
-                                        }}
-                                    />
-                                )}
-                            /> 
-                        </span>
                     </div>
 
                 </div>
