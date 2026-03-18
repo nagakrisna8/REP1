@@ -3,7 +3,7 @@ import { Autocomplete, Button, Checkbox, ListItemText, TextField, Typography } f
 import { useDispatch } from "react-redux";
 import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
-import { MasterDataItem } from "../AdminModal";
+import { MasterDataItem, OrganizationTableData } from "../AdminModal";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
 interface FocalData {
@@ -19,6 +19,7 @@ interface FocalData {
 
 interface FocalFormProps {
     focalData?: FocalData;
+    organizationData: OrganizationTableData[];
     saveFocal?: () => void;
     fetchFocal: () => void;
     focalList?: FocalData[];
@@ -28,12 +29,11 @@ interface FocalFormProps {
     clearFormData?: () => void;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, organizationData }) => {
 
     const dispatch = useDispatch();
     const debounceTimer = useRef<any>(null);
     const initializedRef = useRef(false);
-
     const [formData, setFormData] = useState(() => {
         if (savedFormData) {
             return savedFormData;
@@ -221,7 +221,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
-
+    console.log(organizationData, 'organizationData')
     return (
         <div style={{ padding: "10px" }}>
 
@@ -309,11 +309,11 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                             <label className="formLabel gen-label">
                                 Sub-System
                             </label>
-                            <Autocomplete
+                             <Autocomplete
                                 multiple
                                 id={`select-${index}`}
                                 className="dropdowns gen-inputBox-height gen-custom-dropdown"
-                                options={dropdownOptions?.SubSystems || []}
+                                options={organizationData || []}
                                 noOptionsText="No option available"
                                 disableCloseOnSelect
                                 openOnFocus
@@ -401,7 +401,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                                         }}
                                     />
                                 )}
-                            />                           
+                            /> 
                         </span>
                     </div>
 
