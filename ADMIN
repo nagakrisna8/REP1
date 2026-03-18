@@ -107,6 +107,7 @@ const TableMaintenance: React.FC = () => {
     const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
     const [focalActiveItem, setFocalActiveItem] = useState<FocalMasterTable | null>(null);
     const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<string>(organizationData ? organizationData[0]?.ORGANIZATIONNAME : "");
     // Organization Type handlers
     const CreateOrganizationType = () => {
         const newOrganizatonType: OrganizationTypeMasterTable = {
@@ -1028,7 +1029,7 @@ const TableMaintenance: React.FC = () => {
             await EasaListService.addMasterDataType(payload);
 
             setDirtyFlag(false);
-            fetchFocal();
+            //fetchFocal();
 
             dispatch(showSnackbar({
                 snackbarOpen: true,
@@ -1043,9 +1044,9 @@ const TableMaintenance: React.FC = () => {
             }));
         }
     };
-    const fetchFocal = () => {
+    const fetchFocal = (orgName:string, orgTypeId:number) => {
         let masterdataType = 4;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
+        EasaListService.getAdminMasterDetailsTypeFocalsList(masterdataType, orgName, orgTypeId)
             .then((response) => {
                 let result: FocalMasterTable[] = response?.data.map(x => ({
                     ID: x.ID,
@@ -1161,6 +1162,12 @@ const TableMaintenance: React.FC = () => {
         setSelectedOrgId(orgTypeId);
         fetchOrganization(orgTypeId);
     }
+    const handleOrganization = (event) => {
+        console.log(event, 'event');
+        const orgId = event.target.value;
+        setSelectedOrganizationId(orgId);
+        fetchFocal(selectedOrgId, selectedOrganizationId)
+    }
     useEffect(() => {
         if (selectedOrgId) {
             fetchOrganization(selectedOrgId);
@@ -1192,6 +1199,7 @@ const TableMaintenance: React.FC = () => {
     useEffect(() => {
         fetchMasterDataTypes();
     }, []);
+    console.log(selectedOrganizationId, 'selectedOrganizationId');
     return (
         <div className="EASA-Admin-table-maintenance">
             <div className="EASA-Admin-table-maintenance-topbar">
@@ -1207,7 +1215,7 @@ const TableMaintenance: React.FC = () => {
                         </MenuItem>
                     ))}
                 </Select>
-                {selectedPage === "Organization" && (
+                {(selectedPage === "Organization" || selectedPage === "Focal Management") && (
                     <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
                         Organization Type
                         <Select id="admin-table-page-selector" style={{ maxWidth: 280, minWidth: 250 }} value={selectedOrgId} onChange={handleOrg} size="medium"
@@ -1219,9 +1227,7 @@ const TableMaintenance: React.FC = () => {
                                     }
                                 }
                             }}
-                        >{([...organizationTypeData]
-                            .filter(item => item.ISACTIVE === true)
-                            .reverse()
+                        >{(organizationTypeData
                         ).map(item => (
                             <MenuItem
                                 key={item.ORGANIZATIONTYPEID}
@@ -1229,6 +1235,33 @@ const TableMaintenance: React.FC = () => {
                                 className="text-normal"
                             >
                                 {item.ORGANIZATIONTYPE}
+                            </MenuItem>
+                        ))}
+                        </Select>
+                    </div>
+                )}
+                {(selectedPage === "Focal Management") && (
+                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
+                        Organization
+                        <Select id="admin-table-page-selector" style={{ maxWidth: 280, minWidth: 250 }} value={selectedOrganizationId} onChange={handleOrganization} size="medium"
+                            MenuProps={{
+                                PaperProps: {
+                                    sx: {
+                                        height: 170,
+                                        overflowY: "auto"
+                                    }
+                                }
+                            }}
+                        >{([...organizationData]
+                            .filter(item => item.ISACTIVE === true)
+                            .reverse()
+                        ).map(item => (
+                            <MenuItem
+                                key={item.ORGANIZATIONID}
+                                value={item.ORGANIZATIONID}
+                                className="text-normal"
+                            >
+                                {item.ORGANIZATIONNAME}
                             </MenuItem>
                         ))}
                         </Select>
@@ -1324,7 +1357,6 @@ const TableMaintenance: React.FC = () => {
                         createFocal={CreateFocal}
                         saveFocal={onSaveFocal}
                         fetchFocal={fetchFocal}
-                        organizationData={organizationData}
                         dragStart={focalMasterTableDragStart}
                         reorder={focalMastereorder}
                         sortBy={sortBy.focal}
