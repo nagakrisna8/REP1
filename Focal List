@@ -28,6 +28,7 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName, orgType, onCreateFo
   const [dataState, setDataState] = useState<State>({});
   const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
   const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+  const [activeTab, setActiveTab] = useState<"list" | "add">("list");
 
   const fetchFocalList = async (organization: number, orgType: number) => {
 
@@ -93,31 +94,28 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName, orgType, onCreateFo
     <div className="focal-container">
       <div className="focal-header">
         <Button
-          id="focalCreateBtn"
-          title="Create New"
+          className={`focal-tab ${activeTab === "list" ? "active" : ""}`}
+          onClick={() => setActiveTab("list")}
           size="small"
           color="inherit"
           variant="outlined"
         >
-          <Typography
-            variant="button"
-            sx={{ textTransform: "none", fontSize: "14px" }}
-          >
+          <Typography sx={{ textTransform: "none", fontSize: "15px", fontWeight: 600 }}>
             List of Focals
           </Typography>
         </Button>
+
         <Button
-          id="focalCreateBtn"
-          title="Create New"
-          onClick={onCreateFocal}
+          className={`focal-tab ${activeTab === "add" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("add");
+            onCreateFocal();
+          }}
           size="small"
           color="inherit"
           variant="outlined"
         >
-          <Typography
-            variant="button"
-            sx={{ textTransform: "none", fontSize: "14px" }}
-          >
+          <Typography sx={{ textTransform: "none", fontSize: "15px", fontWeight: 600 }}>
             Add New Focal
           </Typography>
         </Button>
