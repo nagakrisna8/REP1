@@ -20,15 +20,17 @@ interface FocalData {
 interface FocalFormProps {
     focalData?: FocalData;
     saveFocal?: () => void;
-    fetchFocal: () => void;
+    fetchFocal: (orgId: number, orgTypeId: number) => void;
     focalList?: FocalData[];
     cancelFocal?: (id: number) => void;
     savedFormData?: any;
     onFormChange?: (data: any) => void;
     clearFormData?: () => void;
+    selectedOrgId: any;
+    selectedOrganizationId: any
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId }) => {
 
     const dispatch = useDispatch();
     const debounceTimer = useRef<any>(null);
@@ -183,7 +185,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             Phone: formData.phone ?? "",
             Email: formData.email ?? "",
             Title: formData.title ?? "",
-            orgTypeId: 0
+            orgTypeId: 0,
+            orgId: 0
         });
 
         const payload = {
@@ -208,7 +211,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 snackbarMessage: "Focal saved successfully."
             }));
 
-            fetchFocal?.();
+            fetchFocal?.(selectedOrgId, selectedOrganizationId);
             clearFormData?.();
             handleCancel();
 
