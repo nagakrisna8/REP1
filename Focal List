@@ -1,347 +1,324 @@
-import "../AdminTable.scss";
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { FocalMasterTable, SortByData } from "../AdminModal";
-import { State, process } from "@progress/kendo-data-query";
-import {
-    Grid as DataGrid,
-    GridCellProps,
-    GridColumn,
-    GridColumnMenuFilter,
-    GridColumnMenuProps,
-    GridDataStateChangeEvent,
-    GridItemChangeEvent,
-    GridToolbar
-} from "@progress/kendo-react-grid";
+import React, { memo, useState, useEffect, useRef } from "react";
+import { Button, TextField, Typography } from "@mui/material";
+import { useDispatch } from "react-redux";
+import EasaListService from "../../EasaRegisterListService";
+import "./FocalForm.scss";
+import { MasterDataItem } from "../AdminModal";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
-import {
-    Box,
-    Button,
-    Card,
-    FormControl,
-    MenuItem,
-    Select, Typography
-} from "@mui/material";
-
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-import SettingsIcon from "@mui/icons-material/Settings";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
-
-import { filterIcon } from "@progress/kendo-svg-icons";
-import FocalForm from "../Focal/FocalForm";
-
-const editField = "inEdit";
-const SELECTED_FIELD = "selected";
-const AnyGrid = DataGrid as any;
-
-const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
-    <div>
-        <GridColumnMenuFilter {...props} expanded />
-    </div>
-);
-
-interface FocalTableProps {
-    KEY: string;
-    columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
-    focalData: FocalMasterTable[];
-    dataState: State;
-    dataStateChange: (event: GridDataStateChangeEvent) => void;
-    itemChange: (event: GridItemChangeEvent) => void;
-    createFocal: () => void;
-    saveFocal: () => void;
-    fetchFocal: () => void;
-    dragStart: (dataItem: FocalMasterTable) => void;
-    reorder: (dataItem: FocalMasterTable) => void;
-    sortBy: "custom" | "asc" | "desc" | undefined;
-    handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
+interface FocalData {
+    ID?: number;
+    NAME?: string;
+    ADDRESS?: string;
+    PHONENO?: number;
+    EMAIL?: string;
+    POSITION?: string;
+    TITLE?: string;
+    ISACTIVE?: boolean;
 }
 
-const FocalTable: React.FC<any> = memo((props) => {
+interface FocalFormProps {
+    focalData?: FocalData;
+    saveFocal?: () => void;
+    fetchFocal: () => void;
+    focalList?: FocalData[];
+    cancelFocal?: (id: number) => void;
+    savedFormData?: any;
+    onFormChange?: (data: any) => void;
+    clearFormData?: () => void;
+}
 
-    const gridRefBuilder = useRef<any>(null);
-    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-    const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
-    const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
-    const gridData = process(props.focalData, props.dataState).data;
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
 
-    const formDataMapRef = useRef<{ [id: number]: any }>({});
+    const dispatch = useDispatch();
+    const debounceTimer = useRef<any>(null);
+    const initializedRef = useRef(false);
 
-    const handleFormChange = useCallback((id: number, data: any) => {
-        formDataMapRef.current[id] = data;
-    }, []);
-
-    const clearFormData = useCallback((id: number) => {
-        delete formDataMapRef.current[id];
-    }, []);
-
-    const cancelFocal = (id: number) => {
-        setDetailExpand(prev => ({
-            ...prev,
-            [id]: false
-        }));
-    };
-    const expandChange = (dataItem: any) => {
-        const key = dataItem.ID;
-
-        setDetailExpand(prev => {
-            const isCurrentlyOpen = prev[key];
-            if (isCurrentlyOpen) {
-                return {};
-            }
-            return { [key]: true };
-        });
-    };
-
-    const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
-        const expanded = detailExpand[cellProps.dataItem.ID];
-
-        const toggle = (e: React.MouseEvent) => {
-            e.stopPropagation();
-            expandChange(cellProps.dataItem);
-        };
-
-        return (
-            <td>
-                <div style={{ display: "flex", alignItems: "center", justifyContent:'center',gap: 6 }}>
-                    <span
-                        onClick={toggle}
-                        style={{ cursor: "pointer", display: "flex" }}
-                    >
-                        {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-                    </span>
-                </div>
-            </td>
-        );
-    };
-
-    const DetailComponent = (detailProps: any) => {
-        const id = detailProps.dataItem.ID;
-        return (
-            <div>
-                <FocalForm
-                    focalData={detailProps.dataItem}
-                    saveFocal={props.saveFocal}
-                    fetchFocal={props.fetchFocal}
-                    cancelFocal={cancelFocal}
-                    focalList={props.focalData}
-                    savedFormData={formDataMapRef.current[id]}
-                    onFormChange={(data: any) => handleFormChange(id, data)}
-                    clearFormData={() => clearFormData(id)}
-                />
-            </div>
-        );
-    };
-
-    const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
-        const dataItem = cellProps.dataItem;
-
-        return (
-            <td>
-                <div style={{ display: "flex", gap: "12px" }}>
-                    <span style={{ minWidth: "120px" }}>
-                        {dataItem.ADDRESS || ""}
-                    </span>
-                    <span style={{ minWidth: "120px" }}>
-                        {dataItem.PHONENO || ""}
-                    </span>
-                    <span style={{ minWidth: "120px" }}>
-                        {dataItem.POSITION || ""}
-                    </span>
-                    <span style={{ minWidth: "180px" }}>
-                        {dataItem.EMAIL || ""}
-                    </span>
-                </div>
-            </td>
-        );
-    };
-
-    const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-        const dataItem = cellProps.dataItem;
-
-        const handleChange = (e: any) => {
-            const updated = {
-                ...dataItem,
-                ISACTIVE: e.target.checked
-            };
-
-            cellProps.onChange?.({
-                dataIndex: cellProps.dataIndex,
-                dataItem: updated,
-                field: cellProps.field,
-                syntheticEvent: {} as React.SyntheticEvent,
-                value: e.target.checked
-            });
-        };
-
-        return (
-            <td>
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                    <input
-                        type="checkbox"
-                        checked={dataItem.ISACTIVE}
-                        onChange={handleChange}
-                    />
-                </div>
-            </td>
-        );
-    };
-
-    const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-        let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
-        let fixedWidth = totalColumnFixedWidth;
-        let dynamicWidth = 0;
-        let minScreenWidth = 1250;
-        if (k_grid_width) {
-            if (k_grid_width <= minScreenWidth) {
-                return minWidth;
-            } else {
-                dynamicWidth = k_grid_width - fixedWidth;
-                if (width == 0 && dynamicWidth > 0 && percentage > 0) {
-                    const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
-                    return Math.max(minWidth, dynamicColumnWidth);
-                } else {
-                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined;
-                }
-            }
+    const [formData, setFormData] = useState(() => {
+        if (savedFormData) {
+            return savedFormData;
         }
-    };
+        if (focalData) {
+            return {
+                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
+                name: focalData.NAME ?? "",
+                address: focalData.ADDRESS ?? "",
+                phone: String(focalData.PHONENO ?? ""),
+                email: focalData.EMAIL ?? "",
+                position: focalData.POSITION ?? "",
+                title: focalData.TITLE ?? "",
+                isActive: focalData.ISACTIVE ?? false
+            };
+        }
+        return {
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false
+        };
+    });
 
     useEffect(() => {
-        if (props.focalData?.length) {
-            const newRow = props.focalData[0];
-            if (newRow?.newFlag) {
-                setDetailExpand(prev => ({
-                    [newRow.ID]: true
-                }));
-            }
+        return () => {
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        };
+    }, []);
+
+    const handleChange = (e: any) => {
+        const updated = {
+            ...formData,
+            [e.target.name]: e.target.value
+        };
+        setFormData(updated);
+
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            onFormChange?.(updated);
+        }, 400);
+    };
+
+    const handleCancel = () => {
+        clearFormData?.();
+
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+        if ((focalData as any)?.newFlag) {
+            setFormData({
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: false
+            });
+        } else {
+            setFormData({
+                id: focalData?.ID ?? 0,
+                name: focalData?.NAME ?? "",
+                address: focalData?.ADDRESS ?? "",
+                phone: String(focalData?.PHONENO ?? ""),
+                email: focalData?.EMAIL ?? "",
+                position: focalData?.POSITION ?? "",
+                title: focalData?.TITLE ?? "",
+                isActive: focalData?.ISACTIVE ?? false
+            });
         }
-    }, [props.focalData]);
+
+        if (cancelFocal && focalData?.ID !== undefined) {
+            cancelFocal(focalData.ID);
+        }
+    };
+
+    const handleSave = async () => {
+
+        if (!formData.name || formData.name.trim() === "") {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Focal Name is required."
+            }));
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (formData.email && !emailRegex.test(formData.email)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Email Address"
+            }));
+            return;
+        }
+        let isDuplicate = false;
+        if (formData.email && formData.email.trim() !== "") {
+            isDuplicate = focalList?.some(
+                (item: FocalData) =>
+                    item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
+                    item.ID !== formData.id
+            );
+        } else {
+            isDuplicate = focalList?.some(
+                (item: FocalData) =>
+                    item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
+                    item.ID !== formData.id
+            );
+        }
+
+        if (isDuplicate) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: formData.email
+                    ? "Email must be unique."
+                    : "Focal Name must be unique."
+            }));
+            return;
+        }
+
+        if (formData.phone && !/^\d+$/.test(formData.phone)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Phone Number"
+            }));
+            return;
+        }
+
+        const items: MasterDataItem[] = [];
+
+        items.push({
+            Id: formData.id ?? 0,
+            OperationType: formData.id ? "update" : "add",
+            Name: formData.name.trim(),
+            Description: "",
+            IsActive: formData.isActive ? "Y" : "N",
+            Notes: "",
+            Address: formData.address ?? "",
+            Department: formData.position ?? "",
+            Phone: formData.phone ?? "",
+            Email: formData.email ?? "",
+            Title: formData.title ?? "",
+            orgTypeId: 1,
+            orgId:1
+        });
+
+        const payload = {
+            MasterDataType: "Focal Management",
+            Items: items
+        };
+
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error in saving the data."
+                }));
+                return;
+            }
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Focal saved successfully."
+            }));
+
+            fetchFocal?.();
+            clearFormData?.();
+            handleCancel();
+
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Focal."
+            }));
+            console.error("Error saving focal:", error);
+        }
+    };
 
     return (
-        <div style={{ height: "calc(100vh - 240px)" }}>
-            <Card
-                style={{
-                    borderLeft: "4px solid #0033A1",
-                    marginLeft: "22px",
-                    overflow: "hidden",
-                    maxHeight: "calc(100vh - 240px)",
-                }}
-            >
-                <AnyGrid
-                    ref={gridRefBuilder}
-                    id="kgrid-oss-checklistType"
-                    className="focal-grid-compact"
-                    data={gridData}
-                    dataItemKey="ID"
-                    scrollable="scrollable"
-                    resizable
-                    editField={editField}
-                    {...props.dataState}
-                    onDataStateChange={props.dataStateChange}
-                    onItemChange={props.itemChange}
-                    columnMenuIcon={filterIcon}
-                    detail={DetailComponent}
-                    detailExpand={detailExpand}
-                >
-                    <GridToolbar key="grid-toolbar">
-                        {
-                            <Button
-                                className="easalist-marginLeft10"
-                                id="createBtn"
-                                title="Create New"
-                                onClick={props.createFocal}
-                                size={"small"}
-                                color={"inherit"}
-                                variant={"outlined"}
-                            >
-                                <AddCircleOutlineIcon className="iconClass" />
-                                <Typography
-                                    variant={"button"}
-                                    sx={{ textTransform: "none", fontSize: "14px" }}
-                                >
-                                    Create New
-                                </Typography>
-                            </Button>
-                        }
-                        {
-                            <Box
-                                sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1.5,
-                                    position: "absolute",
-                                    right: 20,
-                                }}
-                            >
-                                <Typography
-                                    variant="body2"
-                                    sx={{
-                                        color: "#253746",
-                                        fontWeight: 500,
-                                        whiteSpace: "nowrap",
-                                    }}
-                                >
-                                    Sort Order :
-                                </Typography>
-                                <FormControl variant="outlined">
-                                    <Select
-                                        id="register-type-select-dropdown"
-                                        className="text-normal"
-                                        style={{
-                                            width: "200px",
-                                            height: "32px",
-                                            fontSize: "14px",
-                                            color: "#253746",
-                                        }}
-                                        value={props.sortBy || "custom"}
-                                        onChange={(e) =>
-                                            props.handleSortByChange(
-                                                "focal",
-                                                e.target.value as "custom" | "asc" | "desc"
-                                            )
-                                        }
-                                    >
-                                        <MenuItem value="custom">
-                                            <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                            Customize
-                                        </MenuItem>
-                                        <MenuItem value="asc">
-                                            <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                            Focal Management: Ascending
-                                        </MenuItem>
-                                        <MenuItem value="desc">
-                                            <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                            Focal Management : Descending
-                                        </MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        }
-                    </GridToolbar>
-                    <GridColumn
-                        {...props.columnPropsBuilder("NAME")}
-                        title="Focal Name"
-                        width={setPercentage(undefined, 0, 272)}
-                    />
-                    <GridColumn field="PHONENO" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
-                    <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
-                    <GridColumn
-                        {...props.columnPropsBuilder("ISACTIVE")}
-                        title="Active"
-                        cells={{ data: activeCheckbox }}
-                        width="120px"
-                    />
-                    <GridColumn
-                        title="Focals"
-                        cells={{ data: ContactFocals }}
-                        width="100px"
-                    />
-                </AnyGrid>
-            </Card>
+        <div style={{ padding: "10px" }}>
+
+            <div className="form-header">
+                {formData.id ? "Edit Focal" : "Add Focal"}
+            </div>
+
+            <div className="form-grid">
+
+                {/* LEFT SIDE */}
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Focal Name</label>
+                        <TextField
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Address</label>
+                        <TextField
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Position</label>
+                        <TextField
+                            name="position"
+                            value={formData.position}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                </div>
+
+                {/* RIGHT SIDE */}
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Phone Number</label>
+                        <TextField
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Email</label>
+                        <TextField
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Title</label>
+                        <TextField
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div className="form-actions">
+                <Typography id="modal-modal-btn" className='buttonSection' sx={{ mt: 2 }} textAlign={'end'} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingBlock: '0px', paddingInline: '0px', marginTop: '10px' }}>
+                    <Button variant="outlined" size="small" onClick={handleCancel} className={"cancelButtonUserDefined"}>Cancel</Button>
+                    <Button variant="contained" size="small" onClick={handleSave} className="deleteButton">Save</Button>
+                </Typography>
+            </div>
+
         </div>
     );
 });
 
-export default FocalTable;
+export default FocalForm;
