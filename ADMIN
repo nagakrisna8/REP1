@@ -76,6 +76,7 @@ const TableMaintenance: React.FC = () => {
     const [originalSupplierActivityData, setOriginalSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
     const [originalFocalData, setOriginalFocalData] = useState<FocalMasterTable[]>([]);
     const [originalOrganizationData, setOriginalOrganizationData] = useState<OrganizationTableData[]>([]);
+    const [shouldAutoCreateFocal, setShouldAutoCreateFocal] = useState(false);
     const handlePageChange = async (event: SelectChangeEvent<TableMaintenancePage>): Promise<void> => {
         var storageService = new StorageService();
         const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
@@ -1049,11 +1050,9 @@ const TableMaintenance: React.FC = () => {
         setSelectedOrgId(orgTypeId);
         setSelectedOrganizationId(orgId)
         setSelectedPage("Focal Management");
-        setTimeout(() => {
-            CreateFocal();
-        }, 0);
+        setShouldAutoCreateFocal(true);       
     };
-    const fetchFocal = (orgName: number, orgTypeId: number) => {
+    const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
         EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
             .then((response) => {
@@ -1195,9 +1194,35 @@ const TableMaintenance: React.FC = () => {
         selectedOrganizationId &&
         selectedOrgId
     ) {
-        fetchFocal(selectedOrgId,selectedOrganizationId);
+        const load = async () => {
+            await fetchFocal(selectedOrgId, selectedOrganizationId);
+            if (shouldAutoCreateFocal) {
+
+                const newFocal = {
+                    ID: new Date().getTime(),
+                    NAME: "",
+                    PHONENO: "",
+                    ADDRESS: "",
+                    EMAIL: "",
+                    POSITION: "",
+                    TITLE: "",
+                    newFlag: true,
+                    SORT_ORDER: 1,
+                    ISACTIVE: true,
+                };
+
+                setFocalData(prev => [newFocal, ...prev]);
+
+                setShouldAutoCreateFocal(false);
+            }
+        };
+
+        load();
     }
 }, [selectedPage, selectedOrganizationId, selectedOrgId]);
+
+
+
     React.useEffect(() => {
         const reversed = [...organizationTypeData].reverse();
         if (!selectedOrgId && reversed.length > 0) {
