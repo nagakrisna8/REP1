@@ -51,6 +51,8 @@ interface FocalTableProps {
     itemChange: (event: GridItemChangeEvent) => void;
     createFocal: () => void;
     saveFocal: () => void;
+    selectedOrgId: any;
+    selectedOrganizationId: any;
     fetchFocal: () => void;
     dragStart: (dataItem: FocalMasterTable) => void;
     reorder: (dataItem: FocalMasterTable) => void;
@@ -104,7 +106,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         return (
             <td>
-                <div style={{ display: "flex", alignItems: "center", justifyContent:'center',gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: 'center', gap: 6 }}>
                     <span
                         onClick={toggle}
                         style={{ cursor: "pointer", display: "flex" }}
@@ -124,6 +126,8 @@ const FocalTable: React.FC<any> = memo((props) => {
                     focalData={detailProps.dataItem}
                     saveFocal={props.saveFocal}
                     fetchFocal={props.fetchFocal}
+                    selectedOrgId={props.selectedOrgId}
+                    selectedOrganizationId={props.selectedOrganizationId}
                     cancelFocal={cancelFocal}
                     focalList={props.focalData}
                     savedFormData={formDataMapRef.current[id]}
@@ -210,15 +214,15 @@ const FocalTable: React.FC<any> = memo((props) => {
 
     useEffect(() => {
         if (props.focalData?.length) {
-            const newRow = props.focalData[0];
-            if (newRow?.newFlag) {
-                setDetailExpand(prev => ({
+            const newRow = props.focalData.find(row => row.newFlag);
+
+            if (newRow) {
+                setDetailExpand({
                     [newRow.ID]: true
-                }));
+                });
             }
         }
     }, [props.focalData]);
-
     return (
         <div style={{ height: "calc(100vh - 240px)" }}>
             <Card
