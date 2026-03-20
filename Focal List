@@ -1,324 +1,141 @@
-import React, { memo, useState, useEffect, useRef } from "react";
-import { Button, TextField, Typography } from "@mui/material";
-import { useDispatch } from "react-redux";
+import React, { memo, useEffect, useState, useRef } from "react";
+import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
+import { State, process } from "@progress/kendo-data-query";
 import EasaListService from "../../EasaRegisterListService";
-import "./FocalForm.scss";
-import { MasterDataItem } from "../AdminModal";
-import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
+import "./FocalList.scss";
+import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
+import { Button, Divider, Typography } from "@mui/material";
+
+const AnyGrid = DataGrid as any;
 
 interface FocalData {
-    ID?: number;
-    NAME?: string;
-    ADDRESS?: string;
-    PHONENO?: number;
-    EMAIL?: string;
-    POSITION?: string;
-    TITLE?: string;
-    ISACTIVE?: boolean;
+  NAME: string;
+  ADDRESS: string;
+  PHONE: number;
+  DEPARTMENT: string;
+  EMAIL: string;
 }
 
-interface FocalFormProps {
-    focalData?: FocalData;
-    saveFocal?: () => void;
-    fetchFocal: () => void;
-    focalList?: FocalData[];
-    cancelFocal?: (id: number) => void;
-    savedFormData?: any;
-    onFormChange?: (data: any) => void;
-    clearFormData?: () => void;
+interface FocalListProps {
+  orgName: number;
+  orgType: number;
+  onCreateFocal: (orgId: number, orgTypeId: number) => void
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData }) => {
+const FocalList: React.FC<FocalListProps> = memo(({ orgName, orgType, onCreateFocal }) => {
 
-    const dispatch = useDispatch();
-    const debounceTimer = useRef<any>(null);
-    const initializedRef = useRef(false);
+  const [focalListData, setFocalListData] = useState<FocalData[]>([]);
+  const [dataState, setDataState] = useState<State>({});
+  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+  const [activeTab, setActiveTab] = useState<"list" | "add">("list");
 
-    const [formData, setFormData] = useState(() => {
-        if (savedFormData) {
-            return savedFormData;
+  const fetchFocalList = async (orgType: number, organization: number) => {
+
+
+
+    const masterdataType = 4;
+
+    try {
+
+      const response =
+        await EasaListService.getAdminMasterDetailsTypeFocals(
+          masterdataType,
+          orgType,
+          organization,
+        );
+
+      const result: FocalData[] = response?.data.map((x: any) => ({
+        NAME: x.NAME,
+        ADDRESS: x.ADDRESS,
+        PHONE: x.PHONE,
+        DEPARTMENT: x.POSITION,
+        EMAIL: x.EMAIL
+      }));
+
+      setFocalListData(result);
+
+    } catch (error) {
+      console.error("Error fetching focal list:", error);
+    }
+  };
+  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+    let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
+    let fixedWidth = totalColumnFixedWidth;
+    let dynamicWidth = 0;
+    let minScreenWidth = 1250;
+    let maxScreenWidth;
+    if (k_grid_width) {
+      if (k_grid_width <= minScreenWidth) {
+        return minWidth;
+      }
+      else {
+        dynamicWidth = k_grid_width - fixedWidth;
+        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+          return Math.max(minWidth, dynamicColumnWidth);
         }
-        if (focalData) {
-            return {
-                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
-                name: focalData.NAME ?? "",
-                address: focalData.ADDRESS ?? "",
-                phone: String(focalData.PHONENO ?? ""),
-                email: focalData.EMAIL ?? "",
-                position: focalData.POSITION ?? "",
-                title: focalData.TITLE ?? "",
-                isActive: focalData.ISACTIVE ?? false
-            };
+        else {
+          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
         }
-        return {
-            id: 0,
-            name: "",
-            address: "",
-            phone: "",
-            email: "",
-            position: "",
-            title: "",
-            isActive: false
-        };
-    });
+      }
+    }
 
-    useEffect(() => {
-        return () => {
-            if (debounceTimer.current) clearTimeout(debounceTimer.current);
-        };
-    }, []);
+  }
+  useEffect(() => {
 
-    const handleChange = (e: any) => {
-        const updated = {
-            ...formData,
-            [e.target.name]: e.target.value
-        };
-        setFormData(updated);
+    if (!orgName) return;
 
-        if (debounceTimer.current) clearTimeout(debounceTimer.current);
-        debounceTimer.current = setTimeout(() => {
-            onFormChange?.(updated);
-        }, 400);
-    };
+    fetchFocalList(orgType, orgName);
 
-    const handleCancel = () => {
-        clearFormData?.();
+  }, [orgName, orgType]);
 
-        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+  return (
+    <div className="focal-container">
+      <div className="focal-header">
+        <Button
+          className={`focal-tab ${activeTab === "list" ? "active" : ""}`}
+          onClick={() => setActiveTab("list")}
+          size="small"
+          color="inherit"
+          variant="outlined"
+        >
+          <Typography sx={{ textTransform: "none", fontSize: "15px", fontWeight: 600 }}>
+            List of Focals
+          </Typography>
+        </Button>
 
-        if ((focalData as any)?.newFlag) {
-            setFormData({
-                id: 0,
-                name: "",
-                address: "",
-                phone: "",
-                email: "",
-                position: "",
-                title: "",
-                isActive: false
-            });
-        } else {
-            setFormData({
-                id: focalData?.ID ?? 0,
-                name: focalData?.NAME ?? "",
-                address: focalData?.ADDRESS ?? "",
-                phone: String(focalData?.PHONENO ?? ""),
-                email: focalData?.EMAIL ?? "",
-                position: focalData?.POSITION ?? "",
-                title: focalData?.TITLE ?? "",
-                isActive: focalData?.ISACTIVE ?? false
-            });
-        }
+        <Button
+          className={`focal-tab ${activeTab === "add" ? "active" : ""}`}
+          onClick={() => {
+            setActiveTab("add");
+            onCreateFocal(orgName, orgType);
+          }}
+          size="small"
+          color="inherit"
+          variant="outlined"
+        >
+          <Typography sx={{ textTransform: "none", fontSize: "15px", fontWeight: 600 }}>
+            Add New Focal
+          </Typography>
+        </Button>
+      </div>
 
-        if (cancelFocal && focalData?.ID !== undefined) {
-            cancelFocal(focalData.ID);
-        }
-    };
+      <AnyGrid
+        className="focal-grid"
+        data={process(focalListData, dataState)}
+        {...dataState}
+        onDataStateChange={(e: any) => setDataState(e.dataState)}
+      >
+        <GridColumn field="NAME" title="Focal Names" width={setPercentage(undefined, 0, 272)} />
+        <GridColumn field="ADDRESS" title="Address" width={setPercentage(undefined, 0, 272)} />
+        <GridColumn field="PHONE" title="Phone" width={setPercentage(undefined, 0, 272)} />
+        <GridColumn field="DEPARTMENT" title="Department" width={setPercentage(undefined, 0, 272)} />
+        <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
+      </AnyGrid>
 
-    const handleSave = async () => {
-
-        if (!formData.name || formData.name.trim() === "") {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Focal Name is required."
-            }));
-            return;
-        }
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (formData.email && !emailRegex.test(formData.email)) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Invalid Email Address"
-            }));
-            return;
-        }
-        let isDuplicate = false;
-        if (formData.email && formData.email.trim() !== "") {
-            isDuplicate = focalList?.some(
-                (item: FocalData) =>
-                    item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
-                    item.ID !== formData.id
-            );
-        } else {
-            isDuplicate = focalList?.some(
-                (item: FocalData) =>
-                    item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
-                    item.ID !== formData.id
-            );
-        }
-
-        if (isDuplicate) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: formData.email
-                    ? "Email must be unique."
-                    : "Focal Name must be unique."
-            }));
-            return;
-        }
-
-        if (formData.phone && !/^\d+$/.test(formData.phone)) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Invalid Phone Number"
-            }));
-            return;
-        }
-
-        const items: MasterDataItem[] = [];
-
-        items.push({
-            Id: formData.id ?? 0,
-            OperationType: formData.id ? "update" : "add",
-            Name: formData.name.trim(),
-            Description: "",
-            IsActive: formData.isActive ? "Y" : "N",
-            Notes: "",
-            Address: formData.address ?? "",
-            Department: formData.position ?? "",
-            Phone: formData.phone ?? "",
-            Email: formData.email ?? "",
-            Title: formData.title ?? "",
-            orgTypeId: 1,
-            orgId:1
-        });
-
-        const payload = {
-            MasterDataType: "Focal Management",
-            Items: items
-        };
-
-        try {
-            const response = await EasaListService.addMasterDataType(payload);
-            if (response?.data === -1) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error in saving the data."
-                }));
-                return;
-            }
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Focal saved successfully."
-            }));
-
-            fetchFocal?.();
-            clearFormData?.();
-            handleCancel();
-
-        } catch (error) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Error saving Focal."
-            }));
-            console.error("Error saving focal:", error);
-        }
-    };
-
-    return (
-        <div style={{ padding: "10px" }}>
-
-            <div className="form-header">
-                {formData.id ? "Edit Focal" : "Add Focal"}
-            </div>
-
-            <div className="form-grid">
-
-                {/* LEFT SIDE */}
-                <div className="form-column">
-
-                    <div className="form-row">
-                        <label>Focal Name</label>
-                        <TextField
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Address</label>
-                        <TextField
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Position</label>
-                        <TextField
-                            name="position"
-                            value={formData.position}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                </div>
-
-                {/* RIGHT SIDE */}
-                <div className="form-column">
-
-                    <div className="form-row">
-                        <label>Phone Number</label>
-                        <TextField
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Email</label>
-                        <TextField
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                    <div className="form-row">
-                        <label>Title</label>
-                        <TextField
-                            name="title"
-                            value={formData.title}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
-                    </div>
-
-                </div>
-
-            </div>
-
-            <div className="form-actions">
-                <Typography id="modal-modal-btn" className='buttonSection' sx={{ mt: 2 }} textAlign={'end'} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingBlock: '0px', paddingInline: '0px', marginTop: '10px' }}>
-                    <Button variant="outlined" size="small" onClick={handleCancel} className={"cancelButtonUserDefined"}>Cancel</Button>
-                    <Button variant="contained" size="small" onClick={handleSave} className="deleteButton">Save</Button>
-                </Typography>
-            </div>
-
-        </div>
-    );
+    </div >
+  );
 });
 
-export default FocalForm;
+export default FocalList;
