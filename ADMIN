@@ -87,7 +87,7 @@ const TableMaintenance: React.FC = () => {
             else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
             else if (selectedPage === 'Organization Type') fetchOrganizationType();
             else if (selectedPage === 'Organization') fetchOrganization(selectedOrgId);
-            else if (selectedPage === 'Focal Management') fetchFocal(selectedOrganizationId, selectedOrgId);
+            else if (selectedPage === 'Focal Management') fetchFocal(selectedOrgId, selectedOrganizationId,);
         }
 
         setDirtyFlag(false);
@@ -199,7 +199,7 @@ const TableMaintenance: React.FC = () => {
                     Email: "",
                     Title: "",
                     orgTypeId: 1,
-                    orgId:1
+                    orgId: 1
                 });
             }
             else if (
@@ -1050,7 +1050,7 @@ const TableMaintenance: React.FC = () => {
         setSelectedOrgId(orgTypeId);
         setSelectedOrganizationId(orgId)
         setSelectedPage("Focal Management");
-        setShouldAutoCreateFocal(true);       
+        setShouldAutoCreateFocal(true);
     };
     const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
@@ -1173,7 +1173,7 @@ const TableMaintenance: React.FC = () => {
     const handleOrganization = (event) => {
         const orgId = event.target.value;
         setSelectedOrganizationId(orgId);
-        fetchFocal(selectedOrgId,orgId)
+        fetchFocal(selectedOrgId, orgId)
     }
     useEffect(() => {
         if (selectedOrgId) {
@@ -1189,38 +1189,37 @@ const TableMaintenance: React.FC = () => {
         fetchSupplierActivity();
     }, []);
     useEffect(() => {
-    if (
-        selectedPage === "Focal Management" &&
-        selectedOrganizationId &&
-        selectedOrgId
-    ) {
-        const load = async () => {
-            await fetchFocal(selectedOrgId, selectedOrganizationId);
-            if (shouldAutoCreateFocal) {
+        if (
+            selectedPage === "Focal Management" &&
+            selectedOrganizationId &&
+            selectedOrgId
+        ) {
+            const load = async () => {
+                await fetchFocal(selectedOrgId, selectedOrganizationId);
+                if (shouldAutoCreateFocal) {
 
-                const newFocal = {
-                    ID: new Date().getTime(),
-                    NAME: "",
-                    PHONENO: "",
-                    ADDRESS: "",
-                    EMAIL: "",
-                    POSITION: "",
-                    TITLE: "",
-                    newFlag: true,
-                    SORT_ORDER: 1,
-                    ISACTIVE: true,
-                };
+                    const newFocal = {
+                        ID: new Date().getTime(),
+                        NAME: "",
+                        PHONENO: "",
+                        ADDRESS: "",
+                        EMAIL: "",
+                        POSITION: "",
+                        TITLE: "",
+                        newFlag: true,
+                        SORT_ORDER: 1,
+                        ISACTIVE: true,
+                    };
 
-                setFocalData(prev => [newFocal, ...prev]);
+                    setFocalData(prev => [newFocal, ...prev]);
 
-                setShouldAutoCreateFocal(false);
-            }
-        };
+                    setShouldAutoCreateFocal(false);
+                }
+            };
 
-        load();
-    }
-}, [selectedPage, selectedOrganizationId, selectedOrgId]);
-
+            load();
+        }
+    }, [selectedPage, selectedOrganizationId, selectedOrgId]);
 
 
     React.useEffect(() => {
@@ -1413,6 +1412,8 @@ const TableMaintenance: React.FC = () => {
                         itemChange={focalItemChange}
                         createFocal={CreateFocal}
                         saveFocal={onSaveFocal}
+                        selectedOrgId={selectedOrgId}
+                        selectedOrganizationId={selectedOrganizationId}
                         fetchFocal={fetchFocal}
                         dragStart={focalMasterTableDragStart}
                         reorder={focalMastereorder}
