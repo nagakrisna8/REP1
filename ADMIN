@@ -234,7 +234,7 @@ const TableMaintenance: React.FC = () => {
         }
 
         const payload: MasterDataPayload = {
-            MasterDataType: "OrganizationType",
+            MasterDataType: "Organization Type",
             Items: items,
         };
         try {
@@ -660,7 +660,7 @@ const TableMaintenance: React.FC = () => {
         }
 
         const payload: MasterDataPayload = {
-            MasterDataType: "SupplierActivityAuthorised",
+            MasterDataType: "Supplier Activity Authorised",
             Items: items,
         };
 
@@ -861,7 +861,7 @@ const TableMaintenance: React.FC = () => {
         }
 
         const payload: MasterDataPayload = {
-            MasterDataType: "SupplierCategory",
+            MasterDataType: "Supplier Category",
             Items: items,
         };
 
@@ -920,7 +920,7 @@ const TableMaintenance: React.FC = () => {
         const newFocal: FocalMasterTable = {
             ID: new Date().getTime(),
             NAME: "",
-            PHONENO: "",
+            PHONE: "",
             ADDRESS: "",
             EMAIL: "",
             POSITION: "",
@@ -980,7 +980,7 @@ const TableMaintenance: React.FC = () => {
                     Notes: "",
                     Address: row.ADDRESS ?? "",
                     Department: "",
-                    Phone: row.PHONENO ?? 0,
+                    Phone: row.PHONE ?? 0,
                     Email: "",
                     Title: "",
                     orgTypeId: 0
@@ -988,7 +988,7 @@ const TableMaintenance: React.FC = () => {
             }
             else if (
                 originalRow.NAME !== row.NAME ||
-                originalRow.PHONENO !== row.PHONENO ||
+                originalRow.PHONE !== row.PHONE ||
                 originalRow.ADDRESS !== row.ADDRESS ||
                 originalRow.EMAIL !== row.EMAIL ||
                 originalRow.POSITION !== row.POSITION ||
@@ -1005,7 +1005,7 @@ const TableMaintenance: React.FC = () => {
                     Notes: "",
                     Address: row.ADDRESS ?? "",
                     Department: row.POSITION ?? "",
-                    Phone: row.PHONENO ?? "",
+                    Phone: row.PHONE ?? "",
                     Email: row.EMAIL ?? "",
                     Title: row.TITLE ?? "",
                     orgTypeId: 0
@@ -1023,7 +1023,7 @@ const TableMaintenance: React.FC = () => {
         }
 
         const payload: MasterDataPayload = {
-            MasterDataType: "Focal",
+            MasterDataType: "Focal Management",
             Items: items,
         };
 
@@ -1051,6 +1051,9 @@ const TableMaintenance: React.FC = () => {
         setSelectedOrganizationId(orgId)
         setSelectedPage("Focal Management");
         setShouldAutoCreateFocal(true);
+        setTimeout(() => {
+            CreateFocal();
+        }, 0);
     };
     const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
@@ -1059,7 +1062,7 @@ const TableMaintenance: React.FC = () => {
                 let result: FocalMasterTable[] = response?.data.map(x => ({
                     ID: x.ID,
                     NAME: x.NAME,
-                    PHONENO: x.PHONENO,
+                    PHONE: x.PHONE,
                     ADDRESS: x.ADDRESS,
                     EMAIL: x.EMAIL,
                     POSITION: x.POSITION,
@@ -1067,7 +1070,13 @@ const TableMaintenance: React.FC = () => {
                     ISACTIVE: x.ISACTIVE === "Y",
                 }));
 
-                setFocalData([...result].reverse());
+                setFocalData(prev => {
+                    const newRow = prev.find(r => r.newFlag);
+                    if (newRow) {
+                        return [newRow, ...result.reverse()];
+                    }
+                    return [...result].reverse();
+                });
                 setOriginalFocalData([...result].reverse());
             })
             .catch((err) => console.error(err));
@@ -1196,12 +1205,14 @@ const TableMaintenance: React.FC = () => {
         ) {
             const load = async () => {
                 await fetchFocal(selectedOrgId, selectedOrganizationId);
-                if (shouldAutoCreateFocal) {
 
-                    const newFocal = {
+                if (shouldAutoCreateFocal) {
+                    setShouldAutoCreateFocal(false);
+
+                    const newFocal: FocalMasterTable = {
                         ID: new Date().getTime(),
                         NAME: "",
-                        PHONENO: "",
+                        PHONE: "",
                         ADDRESS: "",
                         EMAIL: "",
                         POSITION: "",
@@ -1210,16 +1221,13 @@ const TableMaintenance: React.FC = () => {
                         SORT_ORDER: 1,
                         ISACTIVE: true,
                     };
-
                     setFocalData(prev => [newFocal, ...prev]);
-
-                    setShouldAutoCreateFocal(false);
                 }
             };
 
             load();
         }
-    }, [selectedPage, selectedOrganizationId, selectedOrgId]);
+    }, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]);
 
 
     React.useEffect(() => {
@@ -1239,7 +1247,16 @@ const TableMaintenance: React.FC = () => {
     useEffect(() => {
         fetchMasterDataTypes();
     }, []);
-    console.log(selectedOrganizationId, 'selectedOrganizationId');
+
+    useEffect(() => {
+        if (
+            selectedPage === "Focal Management" &&
+            selectedOrganizationId &&
+            selectedOrgId
+        ) {
+            fetchFocal(selectedOrgId, selectedOrganizationId);
+        }
+    }, [selectedPage, selectedOrganizationId, selectedOrgId]);
     return (
         <div className="EASA-Admin-table-maintenance">
             <div className="EASA-Admin-table-maintenance-topbar">
