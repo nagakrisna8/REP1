@@ -109,6 +109,7 @@ const TableMaintenance: React.FC = () => {
     const [focalActiveItem, setFocalActiveItem] = useState<FocalMasterTable | null>(null);
     const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
     const [selectedOrganizationId, setSelectedOrganizationId] = useState<number>(1);
+    const [expandFocalId, setExpandFocalId] = useState<number |null>(null);
     // Organization Type handlers
     const CreateOrganizationType = () => {
         const newOrganizatonType: OrganizationTypeMasterTable = {
@@ -1051,9 +1052,9 @@ const TableMaintenance: React.FC = () => {
         setSelectedOrganizationId(orgId)
         setSelectedPage("Focal Management");
         setShouldAutoCreateFocal(true);
-        // setTimeout(() => {
-        //     CreateFocal();
-        // }, 0);
+        setTimeout(() => {
+            CreateFocal();
+        }, 0);
     };
     const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
@@ -1191,36 +1192,6 @@ const TableMaintenance: React.FC = () => {
         fetchSupplierCategory();
         fetchSupplierActivity();
     }, []);
-    useEffect(() => {
-        if (
-            selectedPage === "Focal Management" &&
-            selectedOrganizationId &&
-            selectedOrgId
-        ) {
-            const load = async () => {
-                await fetchFocal(selectedOrgId, selectedOrganizationId);
-
-                if (shouldAutoCreateFocal) {
-                    const newFocal: FocalMasterTable = {
-                        ID: new Date().getTime(),
-                        NAME: "",
-                        PHONE: "",
-                        ADDRESS: "",
-                        EMAIL: "",
-                        POSITION: "",
-                        TITLE: "",
-                        newFlag: true,
-                        SORT_ORDER: 1,
-                        ISACTIVE: true,
-                    };
-                    setFocalData(prev => [newFocal, ...prev]);
-                    setShouldAutoCreateFocal(false);
-                }
-            };
-
-            load();
-        }
-    }, [selectedPage, selectedOrganizationId, selectedOrgId, shouldAutoCreateFocal]);
 
 
     React.useEffect(() => {
@@ -1240,16 +1211,15 @@ const TableMaintenance: React.FC = () => {
     useEffect(() => {
         fetchMasterDataTypes();
     }, []);
-
-    useEffect(() => {
-        if (
-            selectedPage === "Focal Management" &&
-            selectedOrganizationId &&
-            selectedOrgId
-        ) {
-            fetchFocal(selectedOrgId, selectedOrganizationId);
-        }
-    }, [selectedPage, selectedOrganizationId, selectedOrgId]);
+//     useEffect(() => {
+//     if (
+//         selectedPage === "Focal Management" &&
+//         selectedOrganizationId &&
+//         selectedOrgId
+//     ) {
+//         fetchFocal(selectedOrgId, selectedOrganizationId);
+//     }
+// }, [selectedPage, selectedOrganizationId, selectedOrgId]);
     return (
         <div className="EASA-Admin-table-maintenance">
             <div className="EASA-Admin-table-maintenance-topbar">
@@ -1311,7 +1281,6 @@ const TableMaintenance: React.FC = () => {
                             }}
                         >
                             {[...organizationData]
-                                .filter(item => item.ISACTIVE)
                                 .reverse()
                                 .map(item => (
                                     <MenuItem
@@ -1417,6 +1386,7 @@ const TableMaintenance: React.FC = () => {
                         KEY={FOCAL_DATA_ITEM_KEY}
                         columnPropsBuilder={focalColumnPropsBuilder}
                         focalData={focalData}
+                        expandFocalId={expandFocalId}
                         dataState={focalDataState}
                         dataStateChange={onFocalDataStateChange}
                         itemChange={focalItemChange}
