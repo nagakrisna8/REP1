@@ -148,7 +148,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                         {dataItem.ADDRESS || ""}
                     </span>
                     <span style={{ minWidth: "120px" }}>
-                        {dataItem.PHONENO || ""}
+                        {dataItem.PHONE || ""}
                     </span>
                     <span style={{ minWidth: "120px" }}>
                         {dataItem.POSITION || ""}
@@ -329,7 +329,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                         title="Focal Name"
                         width={setPercentage(undefined, 0, 272)}
                     />
-                    <GridColumn field="PHONENO" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
+                    <GridColumn field="PHONE" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
                     <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
                     <GridColumn
                         {...props.columnPropsBuilder("ISACTIVE")}
