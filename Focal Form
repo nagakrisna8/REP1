@@ -10,7 +10,7 @@ interface FocalData {
     ID?: number;
     NAME?: string;
     ADDRESS?: string;
-    PHONENO?: number;
+    PHONE?: number;
     EMAIL?: string;
     POSITION?: string;
     TITLE?: string;
@@ -45,7 +45,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
                 name: focalData.NAME ?? "",
                 address: focalData.ADDRESS ?? "",
-                phone: String(focalData.PHONENO ?? ""),
+                phone: String(focalData.PHONE ?? ""),
                 email: focalData.EMAIL ?? "",
                 position: focalData.POSITION ?? "",
                 title: focalData.TITLE ?? "",
@@ -104,7 +104,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 id: focalData?.ID ?? 0,
                 name: focalData?.NAME ?? "",
                 address: focalData?.ADDRESS ?? "",
-                phone: String(focalData?.PHONENO ?? ""),
+                phone: String(focalData?.PHONE ?? ""),
                 email: focalData?.EMAIL ?? "",
                 position: focalData?.POSITION ?? "",
                 title: focalData?.TITLE ?? "",
@@ -185,8 +185,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             Phone: formData.phone ?? "",
             Email: formData.email ?? "",
             Title: formData.title ?? "",
-            orgTypeId: 0,
-            orgId: 0
+            orgTypeId: selectedOrgId ?? 0,
+            orgId: selectedOrganizationId ?? 0,
         });
 
         const payload = {
@@ -210,11 +210,11 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 snackbarType: "success",
                 snackbarMessage: "Focal saved successfully."
             }));
-
+            if (clearFormData) clearFormData();
+            if (cancelFocal && focalData?.ID !== undefined) {
+                cancelFocal(focalData.ID);
+            }
             fetchFocal?.(selectedOrgId, selectedOrganizationId);
-            clearFormData?.();
-            handleCancel();
-
         } catch (error) {
             dispatch(showSnackbar({
                 snackbarOpen: true,
