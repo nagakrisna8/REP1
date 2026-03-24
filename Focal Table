@@ -211,10 +211,11 @@ const FocalTable: React.FC<any> = memo((props) => {
             }
         }
     };
-
     useEffect(() => {
         if (props.focalData?.length) {
-            const newRow = props.focalData.find(row => row.newFlag);
+            const newRow = props.focalData.find(
+                row => row.newFlag && (!row.NAME || row.NAME === "")
+            );
 
             if (newRow) {
                 setDetailExpand({
