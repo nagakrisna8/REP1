@@ -1051,9 +1051,9 @@ const TableMaintenance: React.FC = () => {
         setSelectedOrganizationId(orgId)
         setSelectedPage("Focal Management");
         setShouldAutoCreateFocal(true);
-        setTimeout(() => {
-            CreateFocal();
-        }, 0);
+        // setTimeout(() => {
+        //     CreateFocal();
+        // }, 0);
     };
     const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
@@ -1070,13 +1070,7 @@ const TableMaintenance: React.FC = () => {
                     ISACTIVE: x.ISACTIVE === "Y",
                 }));
 
-                setFocalData(prev => {
-                    const newRow = prev.find(r => r.newFlag);
-                    if (newRow) {
-                        return [newRow, ...result.reverse()];
-                    }
-                    return [...result].reverse();
-                });
+                setFocalData([...result].reverse());
                 setOriginalFocalData([...result].reverse());
             })
             .catch((err) => console.error(err));
@@ -1207,8 +1201,6 @@ const TableMaintenance: React.FC = () => {
                 await fetchFocal(selectedOrgId, selectedOrganizationId);
 
                 if (shouldAutoCreateFocal) {
-                    setShouldAutoCreateFocal(false);
-
                     const newFocal: FocalMasterTable = {
                         ID: new Date().getTime(),
                         NAME: "",
@@ -1222,6 +1214,7 @@ const TableMaintenance: React.FC = () => {
                         ISACTIVE: true,
                     };
                     setFocalData(prev => [newFocal, ...prev]);
+                    setShouldAutoCreateFocal(false);
                 }
             };
 
