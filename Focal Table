@@ -53,6 +53,7 @@ interface FocalTableProps {
     saveFocal: () => void;
     selectedOrgId: any;
     selectedOrganizationId: any;
+    expandFocalId?: number | null;
     fetchFocal: () => void;
     dragStart: (dataItem: FocalMasterTable) => void;
     reorder: (dataItem: FocalMasterTable) => void;
@@ -84,18 +85,14 @@ const FocalTable: React.FC<any> = memo((props) => {
             [id]: false
         }));
     };
-    const expandChange = (dataItem: any) => {
-        const key = dataItem.ID;
+   const expandChange = (dataItem: any) => {
+    const key = dataItem.ID;
 
-        setDetailExpand(prev => {
-            const isCurrentlyOpen = prev[key];
-            if (isCurrentlyOpen) {
-                return {};
-            }
-            return { [key]: true };
-        });
-    };
-
+    setDetailExpand(prev => ({
+        ...prev,
+        [key]: !prev[key]
+    }));
+};
     const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
         const expanded = detailExpand[cellProps.dataItem.ID];
 
@@ -151,7 +148,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                         {dataItem.PHONE || ""}
                     </span>
                     <span style={{ minWidth: "120px" }}>
-                        {dataItem.POSITION || ""}
+                        {dataItem.DEPARTMENT || ""}
                     </span>
                     <span style={{ minWidth: "180px" }}>
                         {dataItem.EMAIL || ""}
@@ -212,18 +209,24 @@ const FocalTable: React.FC<any> = memo((props) => {
         }
     };
     useEffect(() => {
-        if (props.focalData?.length) {
-            const newRow = props.focalData.find(
-                row => row.newFlag && (!row.NAME || row.NAME === "")
-            );
+    if (props.expandFocalId) {
+        setDetailExpand({
+            [props.expandFocalId]: true
+        });
+    }
+}, [props.expandFocalId]);
+  useEffect(() => {
+    if (props.focalData?.length) {
+        const newRow = props.focalData.find(row => row.newFlag);
 
-            if (newRow) {
-                setDetailExpand({
-                    [newRow.ID]: true
-                });
-            }
+        if (newRow) {
+            setDetailExpand(prev => ({
+                ...prev,
+                [newRow.ID]: true
+            }));
         }
-    }, [props.focalData]);
+    }
+}, [props.focalData]);
     return (
         <div style={{ height: "calc(100vh - 240px)" }}>
             <Card
