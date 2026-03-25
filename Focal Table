@@ -148,7 +148,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                         {dataItem.PHONE || ""}
                     </span>
                     <span style={{ minWidth: "120px" }}>
-                        {dataItem.DEPARTMENT || ""}
+                        {dataItem.POSITION || ""}
                     </span>
                     <span style={{ minWidth: "180px" }}>
                         {dataItem.EMAIL || ""}
@@ -159,35 +159,37 @@ const FocalTable: React.FC<any> = memo((props) => {
     };
 
     const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-        const dataItem = cellProps.dataItem;
+    const dataItem = cellProps.dataItem;
 
-        const handleChange = (e: any) => {
-            const updated = {
-                ...dataItem,
-                ISACTIVE: e.target.checked
-            };
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
 
-            cellProps.onChange?.({
-                dataIndex: cellProps.dataIndex,
-                dataItem: updated,
-                field: cellProps.field,
-                syntheticEvent: {} as React.SyntheticEvent,
-                value: e.target.checked
-            });
+        const updated = {
+            ...dataItem,
+            ISACTIVE: checked
         };
 
-        return (
-            <td>
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                    <input
-                        type="checkbox"
-                        checked={dataItem.ISACTIVE}
-                        onChange={handleChange}
-                    />
-                </div>
-            </td>
-        );
+        cellProps.onChange?.({
+            dataIndex: cellProps.dataIndex,
+            dataItem: updated,
+            field: "ISACTIVE",
+            syntheticEvent: e,
+            value: checked
+        });
     };
+
+    return (
+        <td>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+                <input
+                    type="checkbox"
+                    checked={!!dataItem.ISACTIVE}
+                    onChange={handleChange}
+                />
+            </div>
+        </td>
+    );
+};
 
     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
         let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
@@ -336,7 +338,6 @@ const FocalTable: React.FC<any> = memo((props) => {
                     <GridColumn field="PHONE" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
                     <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
                     <GridColumn
-                        {...props.columnPropsBuilder("ISACTIVE")}
                         title="Active"
                         cells={{ data: activeCheckbox }}
                         width="120px"
