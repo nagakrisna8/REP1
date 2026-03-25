@@ -1191,6 +1191,7 @@ const TableMaintenance: React.FC = () => {
         fetchOrganizationType();
         fetchSupplierCategory();
         fetchSupplierActivity();
+        fetchFocal(selectedOrgId, selectedOrganizationId);
     }, []);
 
 
@@ -1211,15 +1212,6 @@ const TableMaintenance: React.FC = () => {
     useEffect(() => {
         fetchMasterDataTypes();
     }, []);
-//     useEffect(() => {
-//     if (
-//         selectedPage === "Focal Management" &&
-//         selectedOrganizationId &&
-//         selectedOrgId
-//     ) {
-//         fetchFocal(selectedOrgId, selectedOrganizationId);
-//     }
-// }, [selectedPage, selectedOrganizationId, selectedOrgId]);
     return (
         <div className="EASA-Admin-table-maintenance">
             <div className="EASA-Admin-table-maintenance-topbar">
