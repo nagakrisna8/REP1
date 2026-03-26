@@ -81,6 +81,7 @@ const OrganizationTable: React.FC<any> = memo((props) => {
     });
 
   };
+  //const gridData = process(props.organizationData, props.dataState).data;
   const gridData = props.organizationData;
   React.useEffect(() => {
     console.log('debug-log ', props.organizationData, props.dataState, process(props.organizationData, props.dataState));
@@ -227,21 +228,19 @@ const OrganizationTable: React.FC<any> = memo((props) => {
   }
   return (
     <div
-    //  style={{ height: "calc(100vh - 240px)" }}
+    //  style={{ height: "calc(100vh - 240px)" , overflow:'hidden'}}
     >
       <Card
         style={{
           borderLeft: "4px solid #0033A1",
           marginLeft: "22px",
           overflow: "hidden",
-          // maxHeight: "calc(100vh - 240px)",
         }}
       >
         <AnyGrid
           ref={gridRefBuilder}
-          id="kgrid-oss-checklistType"
+          id="kgrid-oss-checklistType_org"
           data={gridData}
-          scrollable="scrollable"
           dataItemKey="ORGANIZATIONID"
           resizable
           editField={editField}
