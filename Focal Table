@@ -51,6 +51,7 @@ interface FocalTableProps {
     itemChange: (event: GridItemChangeEvent) => void;
     createFocal: () => void;
     saveFocal: () => void;
+    setDirtyFlag?: (flag:boolean) => void;
     selectedOrgId: any;
     selectedOrganizationId: any;
     expandFocalId?: number | null;
@@ -72,8 +73,9 @@ const FocalTable: React.FC<any> = memo((props) => {
     const formDataMapRef = useRef<{ [id: number]: any }>({});
 
     const handleFormChange = useCallback((id: number, data: any) => {
-        formDataMapRef.current[id] = data;
-    }, []);
+    formDataMapRef.current[id] = data;
+    props.setDirtyFlag?.(true);
+}, [props]);
 
     const clearFormData = useCallback((id: number) => {
         delete formDataMapRef.current[id];
@@ -130,6 +132,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     savedFormData={formDataMapRef.current[id]}
                     onFormChange={(data: any) => handleFormChange(id, data)}
                     clearFormData={() => clearFormData(id)}
+                    setDirtyFlag={props.setDirtyFlag}
                 />
             </div>
         );
