@@ -81,8 +81,7 @@ const OrganizationTable: React.FC<any> = memo((props) => {
     });
 
   };
-
-  const gridData = process(props.organizationData, props.dataState).data;
+  const gridData = props.organizationData;
   React.useEffect(() => {
     console.log('debug-log ', props.organizationData, props.dataState, process(props.organizationData, props.dataState));
   }, [props.organizationData, props.dataState]);
@@ -247,7 +246,7 @@ const OrganizationTable: React.FC<any> = memo((props) => {
           editField={editField}
           filter={props.dataState.filter}
           sort={props.dataState.sort}
-          take={undefined}
+          take ={undefined}
           skip={0}
           //{...props.dataState}
           selectedField={SELECTED_FIELD}
