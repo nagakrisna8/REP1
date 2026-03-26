@@ -227,28 +227,25 @@ const OrganizationTable: React.FC<any> = memo((props) => {
   }
   return (
     <div
-    // style={{ height: "calc(100vh - 240px)" }}
+    //  style={{ height: "calc(100vh - 240px)" }}
     >
       <Card
         style={{
           borderLeft: "4px solid #0033A1",
           marginLeft: "22px",
           overflow: "hidden",
-          maxHeight: "calc(100vh - 240px)",
+          // maxHeight: "calc(100vh - 240px)",
         }}
       >
         <AnyGrid
           ref={gridRefBuilder}
-          id="kgrid-oss-checklistType_org"
+          id="kgrid-oss-checklistType"
           data={gridData}
+          scrollable="scrollable"
           dataItemKey="ORGANIZATIONID"
           resizable
           editField={editField}
-          filter={props.dataState.filter}
-          sort={props.dataState.sort}
-          take ={undefined}
-          skip={0}
-          //{...props.dataState}
+          {...props.dataState}
           selectedField={SELECTED_FIELD}
           onDataStateChange={props.dataStateChange}
           onItemChange={props.itemChange}
