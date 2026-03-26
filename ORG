@@ -81,11 +81,12 @@ const OrganizationTable: React.FC<any> = memo((props) => {
     });
 
   };
-  //const gridData = process(props.organizationData, props.dataState).data;
-  const gridData = props.organizationData;
-  React.useEffect(() => {
-    console.log('debug-log ', props.organizationData, props.dataState, process(props.organizationData, props.dataState));
-  }, [props.organizationData, props.dataState]);
+  const gridData = process(props.organizationData, {
+    sort: props.dataState.sort,
+    filter: props.dataState.filter,
+    take: undefined,
+    skip: undefined
+  }).data;
 
 
   const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
@@ -205,7 +206,7 @@ const OrganizationTable: React.FC<any> = memo((props) => {
     );
   };
   const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-    let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
+    let k_grid_width = document.querySelector("#kgrid-oss-checklistType_org")?.clientWidth;
     let fixedWidth = totalColumnFixedWidth;
     let dynamicWidth = 0;
     let minScreenWidth = 1250;
@@ -244,7 +245,7 @@ const OrganizationTable: React.FC<any> = memo((props) => {
           dataItemKey="ORGANIZATIONID"
           resizable
           editField={editField}
-          {...props.dataState}
+          // {...props.dataState}
           selectedField={SELECTED_FIELD}
           onDataStateChange={props.dataStateChange}
           onItemChange={props.itemChange}
@@ -362,7 +363,6 @@ const OrganizationTable: React.FC<any> = memo((props) => {
             width={setPercentage(undefined, 0, 272)}
           />
           <GridColumn
-            {...props.columnPropsBuilder("ISACTIVE")}
             title="Active"
             cells={{ data: activeCheckbox }}
             width="90px"
