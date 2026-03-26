@@ -12,7 +12,7 @@ interface FocalData {
     ADDRESS?: string;
     PHONE?: number;
     EMAIL?: string;
-    POSITION?: string;
+    DEPARTMENT?: string;
     TITLE?: string;
     ISACTIVE?: boolean;
 }
@@ -47,7 +47,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 address: focalData.ADDRESS ?? "",
                 phone: String(focalData.PHONE ?? ""),
                 email: focalData.EMAIL ?? "",
-                position: focalData.POSITION ?? "",
+                position: focalData.DEPARTMENT ?? "",
                 title: focalData.TITLE ?? "",
                 isActive: focalData.ISACTIVE ?? false
             };
@@ -106,7 +106,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 address: focalData?.ADDRESS ?? "",
                 phone: String(focalData?.PHONE ?? ""),
                 email: focalData?.EMAIL ?? "",
-                position: focalData?.POSITION ?? "",
+                position: focalData?.DEPARTMENT ?? "",
                 title: focalData?.TITLE ?? "",
                 isActive: focalData?.ISACTIVE ?? false
             });
@@ -226,7 +226,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
-
+    
     return (
         <div style={{ padding: "10px" }}>
 
