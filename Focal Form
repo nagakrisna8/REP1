@@ -26,11 +26,12 @@ interface FocalFormProps {
     savedFormData?: any;
     onFormChange?: (data: any) => void;
     clearFormData?: () => void;
+    setDirtyFlag?: (flag:boolean) => void;
     selectedOrgId: any;
     selectedOrganizationId: any
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId,setDirtyFlag }) => {
 
     const dispatch = useDispatch();
     const debounceTimer = useRef<any>(null);
@@ -211,6 +212,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 snackbarMessage: "Focal saved successfully."
             }));
             if (clearFormData) clearFormData();
+            setDirtyFlag?.(false);
             if (cancelFocal && focalData?.ID !== undefined) {
                 cancelFocal(focalData.ID);
             }
