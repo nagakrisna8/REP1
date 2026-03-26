@@ -924,7 +924,7 @@ const TableMaintenance: React.FC = () => {
             PHONE: "",
             ADDRESS: "",
             EMAIL: "",
-            POSITION: "",
+            DEPARTMENT: "",
             TITLE: "",
             newFlag: true,
             SORT_ORDER: focalData.length + 1,
@@ -992,7 +992,7 @@ const TableMaintenance: React.FC = () => {
                 originalRow.PHONE !== row.PHONE ||
                 originalRow.ADDRESS !== row.ADDRESS ||
                 originalRow.EMAIL !== row.EMAIL ||
-                originalRow.POSITION !== row.POSITION ||
+                originalRow.DEPARTMENT !== row.DEPARTMENT ||
                 originalRow.TITLE !== row.TITLE ||
                 originalRow.ISACTIVE !== row.ISACTIVE ||
                 originalRow.SORT_ORDER !== row.SORT_ORDER
@@ -1005,7 +1005,7 @@ const TableMaintenance: React.FC = () => {
                     IsActive: row.ISACTIVE ? "Y" : "N",
                     Notes: "",
                     Address: row.ADDRESS ?? "",
-                    Department: row.POSITION ?? "",
+                    Department: row.DEPARTMENT ?? "",
                     Phone: row.PHONE ?? "",
                     Email: row.EMAIL ?? "",
                     Title: row.TITLE ?? "",
@@ -1047,15 +1047,34 @@ const TableMaintenance: React.FC = () => {
             }));
         }
     };
-    const handleCreateFocalFromOrg = (orgId: number, orgTypeId: number) => {
-        setSelectedOrgId(orgTypeId);
-        setSelectedOrganizationId(orgId)
-        setSelectedPage("Focal Management");
-        setShouldAutoCreateFocal(true);
-        setTimeout(() => {
-            CreateFocal();
-        }, 0);
-    };
+    const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
+    setSelectedOrgId(orgTypeId);
+    setSelectedOrganizationId(orgId);
+    setSelectedPage("Focal Management");
+    setFocalData([]);
+    setOriginalFocalData([]);
+    await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId)
+        .then((response) => {
+            let result: FocalMasterTable[] = response?.data.map(x => ({
+                ID: x.ID,
+                NAME: x.NAME,
+                PHONE: x.PHONE,
+                ADDRESS: x.ADDRESS,
+                EMAIL: x.EMAIL,
+                DEPARTMENT: x.DEPARTMENT,
+                TITLE: x.TITLE,
+                ISACTIVE: x.ISACTIVE === "Y",
+            }));
+
+            setFocalData([...result].reverse());
+            setOriginalFocalData([...result].reverse());
+
+            setTimeout(() => {
+                CreateFocal();
+            }, 0);
+        })
+        .catch((err) => console.error(err));
+};
     const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
         EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
@@ -1066,7 +1085,7 @@ const TableMaintenance: React.FC = () => {
                     PHONE: x.PHONE,
                     ADDRESS: x.ADDRESS,
                     EMAIL: x.EMAIL,
-                    POSITION: x.POSITION,
+                    DEPARTMENT: x.DEPARTMENT,
                     TITLE: x.TITLE,
                     ISACTIVE: x.ISACTIVE === "Y",
                 }));
