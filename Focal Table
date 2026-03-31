@@ -38,6 +38,8 @@ import { filterIcon } from "@progress/kendo-svg-icons";
 import FocalForm from "../Focal/FocalForm";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 import UserLookupPopupService from "../../../csr-details/revision-record/user-lookup-popup/UserLookupPopupService";
+import { useParams } from "react-router-dom";
+import EasaRegisterListService from "../../EasaRegisterListService";
 
 const editField = "inEdit";
 const SELECTED_FIELD = "selected";
@@ -82,7 +84,8 @@ const FocalTable: React.FC<any> = memo((props) => {
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
-    const [result, setResult] = useState<any>(null); // API response stored here
+    const [result, setResult] = useState<any>(null);
+    const { reportId } = useParams();
 
     const gridData = process(props.focalData, props.dataState).data;
 
@@ -185,8 +188,8 @@ const FocalTable: React.FC<any> = memo((props) => {
         };
 
         const handleSearch = (searchValue: string) => {
-            const getUserInfoData = {
-                reportId: null,
+            const getUserInfoData: any = {
+                reportId : Number(reportId),
                 userType: null,
                 personName: null,
                 bemsId: Number(searchValue) || 0,
@@ -194,10 +197,11 @@ const FocalTable: React.FC<any> = memo((props) => {
                 searchQuery: searchValue || null
             };
 
-            UserLookupPopupService.getUserInfoByName(getUserInfoData)
+            EasaRegisterListService.GetUserDetail(Number(searchValue))
                 .then((response) => {
-                    const result = response?.data?.BluesDetails || [];
-                    setResult(result); // store API response here
+                    console.log(response, 'response');
+                    const result = response?.data || [];
+                    setResult(result); 
 
                     if (result.length > 0) {
                         const firstUser = result[0];
