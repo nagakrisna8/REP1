@@ -76,9 +76,6 @@ interface FocalTableProps {
     ) => void;
 }
 
-/** =========================
- * Stable memoized BEMS input
- * ========================= */
 interface BemsSearchInputProps {
     value: string;
     onChange: (value: string) => void;
@@ -133,9 +130,8 @@ const FocalTable: React.FC<any> = memo((props) => {
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = useState<{ [key: number]: boolean }>({});
     const [result, setResult] = useState<any>(null);
-
-    /** Separate temporary BEMS input per row */
     const [searchInput, setSearchInput] = useState<{ [key: number]: string }>({});
+    const [, forceRefresh] = useState(0);
 
     const { reportId } = useParams();
 
@@ -173,6 +169,8 @@ const FocalTable: React.FC<any> = memo((props) => {
             delete updated[id];
             return updated;
         });
+
+        delete formDataMapRef.current[id];
     }, [props.focalData]);
 
     const expandChange = useCallback((dataItem: any) => {
@@ -234,11 +232,8 @@ const FocalTable: React.FC<any> = memo((props) => {
         clearFormData
     ]);
 
-    /** =========================
-     * Search API call
-     * ========================= */
     const handleSearch = useCallback(
-        async (dataItem: any, cellProps: GridCellProps) => {
+        async (dataItem: any) => {
             const bemsValue = searchInput[dataItem.ID]?.trim();
 
             if (!bemsValue) return;
@@ -247,39 +242,41 @@ const FocalTable: React.FC<any> = memo((props) => {
                 const response = await EasaRegisterListService.GetUserDetail(Number(bemsValue));
                 const apiResult = response?.data || null;
 
+                console.log(apiResult, "apiResult");
                 setResult(apiResult);
 
                 if (apiResult) {
-                    /** Update row fields automatically */
-                    props.itemChange?.({
-                        dataIndex: cellProps.dataIndex,
-                        dataItem: {
-                            ...dataItem,
-                            NAME: apiResult?.UserName || dataItem.NAME,
-                            PHONE: apiResult?.PhoneNo || dataItem.PHONE,
-                            EMAIL: apiResult?.Email || dataItem.EMAIL
-                        },
-                        field: "NAME",
-                        syntheticEvent: {} as any,
-                        value: apiResult?.UserName || dataItem.NAME
-                    });
+                    // ✅ Update form data directly
+                    formDataMapRef.current[dataItem.ID] = {
+                        ...(formDataMapRef.current[dataItem.ID] || dataItem),
+                        NAME: apiResult?.UserName || dataItem.NAME,
+                        PHONE: apiResult?.PhoneNo || dataItem.PHONE,
+                        EMAIL: apiResult?.Email || dataItem.EMAIL
+                    };
 
-                    /** Clear BEMS input after successful search if you want */
+                    // optional: also reflect in grid row
+                    dataItem.NAME = apiResult?.UserName || dataItem.NAME;
+                    dataItem.PHONE = apiResult?.PhoneNo || dataItem.PHONE;
+                    dataItem.EMAIL = apiResult?.Email || dataItem.EMAIL;
+
+                    // clear search box after successful fetch
                     setSearchInput((prev) => ({
                         ...prev,
                         [dataItem.ID]: ""
                     }));
+
+                    // force re-render so FocalForm gets updated savedFormData
+                    forceRefresh((prev) => prev + 1);
+
+                    props.setDirtyFlag?.(true);
                 }
             } catch (error) {
                 console.error("Error fetching data:", error);
             }
         },
-        [searchInput, props.itemChange]
+        [searchInput, props]
     );
 
-    /** =========================
-     * Name Cell
-     * ========================= */
     const NameEditableCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
         const dataItem = cellProps.dataItem;
         const isExpanded = !!detailExpand[dataItem.ID];
@@ -305,8 +302,8 @@ const FocalTable: React.FC<any> = memo((props) => {
                             [dataItem.ID]: value
                         }));
                     }}
-                    onSearch={() => handleSearch(dataItem, cellProps)}
-                    onEnter={() => handleSearch(dataItem, cellProps)}
+                    onSearch={() => handleSearch(dataItem)}
+                    onEnter={() => handleSearch(dataItem)}
                 />
             </td>
         );
