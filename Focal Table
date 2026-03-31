@@ -129,10 +129,9 @@ const FocalTable: React.FC<any> = memo((props) => {
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = useState<{ [key: number]: boolean }>({});
-    const [result, setResult] = useState<any>(null);
+    const [userData, setUserData] = useState<any>(null);
+    /** Separate temporary BEMS input per row */
     const [searchInput, setSearchInput] = useState<{ [key: number]: string }>({});
-    const [, forceRefresh] = useState(0);
-
     const { reportId } = useParams();
 
     const gridData = process(props.focalData, props.dataState).data;
@@ -169,8 +168,6 @@ const FocalTable: React.FC<any> = memo((props) => {
             delete updated[id];
             return updated;
         });
-
-        delete formDataMapRef.current[id];
     }, [props.focalData]);
 
     const expandChange = useCallback((dataItem: any) => {
@@ -206,6 +203,7 @@ const FocalTable: React.FC<any> = memo((props) => {
         return (
             <div>
                 <FocalForm
+                    userData ={userData}
                     focalData={detailProps.dataItem}
                     saveFocal={props.saveFocal}
                     fetchFocal={props.fetchFocal}
@@ -232,8 +230,11 @@ const FocalTable: React.FC<any> = memo((props) => {
         clearFormData
     ]);
 
+    /** =========================
+     * Search API call
+     * ========================= */
     const handleSearch = useCallback(
-        async (dataItem: any) => {
+        async (dataItem: any, cellProps: GridCellProps) => {
             const bemsValue = searchInput[dataItem.ID]?.trim();
 
             if (!bemsValue) return;
@@ -241,42 +242,38 @@ const FocalTable: React.FC<any> = memo((props) => {
             try {
                 const response = await EasaRegisterListService.GetUserDetail(Number(bemsValue));
                 const apiResult = response?.data || null;
-
-                console.log(apiResult, "apiResult");
-                setResult(apiResult);
-
+                setUserData(apiResult);
                 if (apiResult) {
-                    // ✅ Update form data directly
-                    formDataMapRef.current[dataItem.ID] = {
-                        ...(formDataMapRef.current[dataItem.ID] || dataItem),
-                        NAME: apiResult?.UserName || dataItem.NAME,
-                        PHONE: apiResult?.PhoneNo || dataItem.PHONE,
-                        EMAIL: apiResult?.Email || dataItem.EMAIL
-                    };
+                    /** Update row fields automatically */
+                    props.itemChange?.({
+                        dataIndex: cellProps.dataIndex,
+                        dataItem: {
+                            ...dataItem,
+                            NAME: apiResult?.UserName || dataItem.NAME,
+                            PHONE: apiResult?.PhoneNo || dataItem.PHONE,
+                            EMAIL: apiResult?.Email || dataItem.EMAIL
+                        },
+                        field: "NAME",
+                        syntheticEvent: {} as any,
+                        value: apiResult?.UserName || dataItem.NAME
+                    });
 
-                    // optional: also reflect in grid row
-                    dataItem.NAME = apiResult?.UserName || dataItem.NAME;
-                    dataItem.PHONE = apiResult?.PhoneNo || dataItem.PHONE;
-                    dataItem.EMAIL = apiResult?.Email || dataItem.EMAIL;
-
-                    // clear search box after successful fetch
+                    /** Clear BEMS input after successful search if you want */
                     setSearchInput((prev) => ({
                         ...prev,
                         [dataItem.ID]: ""
                     }));
-
-                    // force re-render so FocalForm gets updated savedFormData
-                    forceRefresh((prev) => prev + 1);
-
-                    props.setDirtyFlag?.(true);
                 }
             } catch (error) {
                 console.error("Error fetching data:", error);
             }
         },
-        [searchInput, props]
+        [searchInput, props.itemChange]
     );
 
+    /** =========================
+     * Name Cell
+     * ========================= */
     const NameEditableCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
         const dataItem = cellProps.dataItem;
         const isExpanded = !!detailExpand[dataItem.ID];
@@ -302,8 +299,8 @@ const FocalTable: React.FC<any> = memo((props) => {
                             [dataItem.ID]: value
                         }));
                     }}
-                    onSearch={() => handleSearch(dataItem)}
-                    onEnter={() => handleSearch(dataItem)}
+                    onSearch={() => handleSearch(dataItem, cellProps)}
+                    onEnter={() => handleSearch(dataItem, cellProps)}
                 />
             </td>
         );
