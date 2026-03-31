@@ -2,6 +2,7 @@ import "../AdminTable.scss";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { FocalMasterTable, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
+import SearchIcon from '@mui/icons-material/Search';
 import {
     Grid as DataGrid,
     GridCellProps,
@@ -18,8 +19,10 @@ import {
     Button,
     Card,
     FormControl,
+    IconButton,
+    InputAdornment,
     MenuItem,
-    Select, Typography
+    Select, TextField, Typography
 } from "@mui/material";
 
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -31,6 +34,8 @@ import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 
 import { filterIcon } from "@progress/kendo-svg-icons";
 import FocalForm from "../Focal/FocalForm";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
+import UserLookupPopupService from "../../../csr-details/revision-record/user-lookup-popup/UserLookupPopupService";
 
 const editField = "inEdit";
 const SELECTED_FIELD = "selected";
@@ -51,7 +56,7 @@ interface FocalTableProps {
     itemChange: (event: GridItemChangeEvent) => void;
     createFocal: () => void;
     saveFocal: () => void;
-    setDirtyFlag?: (flag:boolean) => void;
+    setDirtyFlag?: (flag: boolean) => void;
     selectedOrgId: any;
     selectedOrganizationId: any;
     expandFocalId?: number | null;
@@ -73,28 +78,35 @@ const FocalTable: React.FC<any> = memo((props) => {
     const formDataMapRef = useRef<{ [id: number]: any }>({});
 
     const handleFormChange = useCallback((id: number, data: any) => {
-    formDataMapRef.current[id] = data;
-    props.setDirtyFlag?.(true);
-}, [props]);
+        formDataMapRef.current[id] = data;
+        props.setDirtyFlag?.(true);
+    }, [props]);
 
     const clearFormData = useCallback((id: number) => {
         delete formDataMapRef.current[id];
     }, []);
 
     const cancelFocal = (id: number) => {
+        const row = props.focalData.find((item: any) => item.ID === id);
+        if (row?.newFlag) {
+            props.focalData.splice(
+                props.focalData.findIndex((item: any) => item.ID === id),
+                1
+            );
+        }
         setDetailExpand(prev => ({
             ...prev,
             [id]: false
         }));
     };
-   const expandChange = (dataItem: any) => {
-    const key = dataItem.ID;
+    const expandChange = (dataItem: any) => {
+        const key = dataItem.ID;
 
-    setDetailExpand(prev => ({
-        ...prev,
-        [key]: !prev[key]
-    }));
-};
+        setDetailExpand(prev => ({
+            ...prev,
+            [key]: !prev[key]
+        }));
+    };
     const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
         const expanded = detailExpand[cellProps.dataItem.ID];
 
@@ -137,6 +149,104 @@ const FocalTable: React.FC<any> = memo((props) => {
             </div>
         );
     };
+    const NameEditableCell: React.ComponentType<GridCellProps> = (cellProps) => {
+        const dataItem = cellProps.dataItem;
+
+        const isExpanded = !!detailExpand[dataItem.ID];
+        const showSearchField = isExpanded && !!dataItem.newFlag;
+
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const value = e.target.value;
+
+            cellProps.onChange?.({
+                dataIndex: cellProps.dataIndex,
+                dataItem: {
+                    ...dataItem,
+                    NAME: value
+                },
+                field: "NAME",
+                syntheticEvent: e,
+                value
+            });
+        };
+
+        const handleSearch = (name: any) => {
+            let bemsId: number = 0;
+            const getUserInfoData = {
+                reportId: null,
+                userType: null,
+                personName: null,
+                bemsId: bemsId,
+                projectId: null,
+                searchQuery: null
+            } as GetUserInfo;
+
+            UserLookupPopupService.getUserInfoByName(getUserInfoData)
+                .then((response) => {
+                    let gridData: any[] = [];
+
+                    if (response?.data?.BluesDetails?.length > 0) {
+                        gridData = response.data.BluesDetails;
+                    }
+
+                    setShowNoData(response.data.showNonUSMsg);
+                    setShowCardContent(true);
+                    AdminSearchDataDetails = gridData;
+                    setSearchResults(gridData[0]);
+                    setData(process(gridData, dataState));
+                })
+                .catch((error) => {
+                    console.error("Error fetching data:", error);
+                });
+        };
+
+        const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === "Enter") {
+                handleSearch(name);
+            }
+        };
+
+        return (
+            <td>
+                {showSearchField ? (
+                    <div style={{ width: "100%" }}>
+                        <TextField
+                            variant="standard"
+                            value={dataItem.NAME || ""}
+                            style={{ width: "100%" }}
+                            onChange={handleChange}
+                            onKeyDown={handleKeyDown}
+                            placeholder="BEMS ID"
+                            className="kgrid-oss-csr-lookup-popup-input"
+                            inputProps={{
+                                style: {
+                                    fontSize: 14,
+                                    color: "#253746",
+                                    fontWeight: "normal"
+                                }
+                            }}
+                            InputProps={{
+                                endAdornment: (
+                                    <InputAdornment position="end">
+                                        <IconButton
+                                            className="kgrid-oss-csr-lookup-popup-search-icon"
+                                            onClick={handleSearch}
+                                        >
+                                            <SearchIcon />
+                                        </IconButton>
+                                    </InputAdornment>
+                                ),
+                            }}
+                        />
+                    </div>
+                ) : (
+                    <span>{dataItem.NAME || ""}</span>
+                )}
+            </td>
+        )
+    }
+
+
 
     const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
         const dataItem = cellProps.dataItem;
@@ -162,37 +272,37 @@ const FocalTable: React.FC<any> = memo((props) => {
     };
 
     const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-    const dataItem = cellProps.dataItem;
+        const dataItem = cellProps.dataItem;
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const checked = e.target.checked;
+        const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+            const checked = e.target.checked;
 
-        const updated = {
-            ...dataItem,
-            ISACTIVE: checked
+            const updated = {
+                ...dataItem,
+                ISACTIVE: checked
+            };
+
+            cellProps.onChange?.({
+                dataIndex: cellProps.dataIndex,
+                dataItem: updated,
+                field: "ISACTIVE",
+                syntheticEvent: e,
+                value: checked
+            });
         };
 
-        cellProps.onChange?.({
-            dataIndex: cellProps.dataIndex,
-            dataItem: updated,
-            field: "ISACTIVE",
-            syntheticEvent: e,
-            value: checked
-        });
+        return (
+            <td>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                    <input
+                        type="checkbox"
+                        checked={!!dataItem.ISACTIVE}
+                        onChange={handleChange}
+                    />
+                </div>
+            </td>
+        );
     };
-
-    return (
-        <td>
-            <div style={{ display: "flex", justifyContent: "center" }}>
-                <input
-                    type="checkbox"
-                    checked={!!dataItem.ISACTIVE}
-                    onChange={handleChange}
-                />
-            </div>
-        </td>
-    );
-};
 
     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
         let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
@@ -214,24 +324,24 @@ const FocalTable: React.FC<any> = memo((props) => {
         }
     };
     useEffect(() => {
-    if (props.expandFocalId) {
-        setDetailExpand({
-            [props.expandFocalId]: true
-        });
-    }
-}, [props.expandFocalId]);
-  useEffect(() => {
-    if (props.focalData?.length) {
-        const newRow = props.focalData.find(row => row.newFlag);
-
-        if (newRow) {
-            setDetailExpand(prev => ({
-                ...prev,
-                [newRow.ID]: true
-            }));
+        if (props.expandFocalId) {
+            setDetailExpand({
+                [props.expandFocalId]: true
+            });
         }
-    }
-}, [props.focalData]);
+    }, [props.expandFocalId]);
+    useEffect(() => {
+        if (props.focalData?.length) {
+            const newRow = props.focalData.find(row => row.newFlag);
+
+            if (newRow) {
+                setDetailExpand(prev => ({
+                    ...prev,
+                    [newRow.ID]: true
+                }));
+            }
+        }
+    }, [props.focalData]);
     return (
         <div style={{ height: "calc(100vh - 240px)" }}>
             <Card
@@ -337,6 +447,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                         {...props.columnPropsBuilder("NAME")}
                         title="Focal Name"
                         width={setPercentage(undefined, 0, 272)}
+                        cells={{ data: NameEditableCell }}
                     />
                     <GridColumn field="PHONE" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
                     <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
