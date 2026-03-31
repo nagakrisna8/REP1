@@ -19,6 +19,7 @@ interface FocalData {
 
 interface FocalFormProps {
     focalData?: FocalData;
+    userData?: FocalData[];
     saveFocal?: () => void;
     fetchFocal: (orgId: number, orgTypeId: number) => void;
     focalList?: FocalData[];
@@ -31,7 +32,7 @@ interface FocalFormProps {
     selectedOrganizationId: any
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId, setDirtyFlag }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId, setDirtyFlag, userData=[] }) => {
 
     const dispatch = useDispatch();
     const debounceTimer = useRef<any>(null);
@@ -228,7 +229,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
-    
+    console.log(userData, 'userData');
     return (
         <div style={{ padding: "10px" }}>
 
