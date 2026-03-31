@@ -1,19 +1,21 @@
-useEffect(() => {
-    if ((focalData as any)?.newFlag && userData && userData.length > 0) {
-        const user = userData[0];
-
-        const updatedData = {
-            id: 0,
-            name: user.Name ?? "",
-            address: "",
-            phone: String(user.Phone ?? ""),
-            email: user.Email ?? "",
-            position: "",
-            title: "",
-            isActive: false
-        };
-
-        setFormData(updatedData);
-        onFormChange?.(updatedData);
-    }
-}, [userData, focalData]);
+const DetailComponent = (detailProps: any) => {
+    const id = detailProps.dataItem.ID;
+    return (
+        <div>
+            <FocalForm
+                userData={userData}
+                focalData={detailProps.dataItem}
+                saveFocal={props.saveFocal}
+                fetchFocal={props.fetchFocal}
+                selectedOrgId={props.selectedOrgId}
+                selectedOrganizationId={props.selectedOrganizationId}
+                cancelFocal={cancelFocal}
+                focalList={props.focalData}
+                savedFormData={formDataMapRef.current[id]}
+                onFormChange={(data: any) => handleFormChange(id, data)}
+                clearFormData={() => clearFormData(id)}
+                setDirtyFlag={props.setDirtyFlag}
+            />
+        </div>
+    );
+};
