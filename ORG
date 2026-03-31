@@ -1,14 +1,44 @@
-useEffect(() => {
-    if (savedFormData) {
-        setFormData({
-            id: savedFormData.id ?? savedFormData.ID ?? 0,
-            name: savedFormData.name ?? savedFormData.NAME ?? "",
-            address: savedFormData.address ?? savedFormData.ADDRESS ?? "",
-            phone: String(savedFormData.phone ?? savedFormData.PHONE ?? ""),
-            email: savedFormData.email ?? savedFormData.EMAIL ?? "",
-            position: savedFormData.position ?? savedFormData.DEPARTMENT ?? "",
-            title: savedFormData.title ?? savedFormData.TITLE ?? "",
-            isActive: savedFormData.isActive ?? savedFormData.ISACTIVE ?? false
-        });
+const BemsSearchInput = React.memo(
+    ({ initialValue = "", onSearch }: { initialValue?: string; onSearch: (value: string) => void }) => {
+        const [localValue, setLocalValue] = useState(initialValue);
+
+        return (
+            <div style={{ width: "100%" }}>
+                <TextField
+                    variant="standard"
+                    value={localValue}
+                    style={{ width: "100%" }}
+                    onChange={(e) => setLocalValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                            onSearch(localValue);
+                        }
+                    }}
+                    placeholder="BEMS ID"
+                    autoComplete="off"
+                    className="kgrid-oss-csr-lookup-popup-input"
+                    inputProps={{
+                        style: {
+                            fontSize: 14,
+                            color: "#253746",
+                            fontWeight: "normal"
+                        }
+                    }}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton
+                                    className="kgrid-oss-csr-lookup-popup-search-icon"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => onSearch(localValue)}
+                                >
+                                    <SearchIcon />
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }}
+                />
+            </div>
+        );
     }
-}, [savedFormData]);
+);
