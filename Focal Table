@@ -1,8 +1,19 @@
-if (formData.phone && !/^\+?[0-9 ]+$/.test(formData.phone.trim())) {
-    dispatch(showSnackbar({
-        snackbarOpen: true,
-        snackbarType: "error",
-        snackbarMessage: "Invalid Phone Number"
-    }));
-    return;
-}
+useEffect(() => {
+    if ((focalData as any)?.newFlag && userData && userData.length > 0) {
+        const user = userData[0];
+
+        const updatedData = {
+            id: 0,
+            name: user.Name ?? "",
+            address: "",
+            phone: String(user.Phone ?? ""),
+            email: user.Email ?? "",
+            position: "",
+            title: "",
+            isActive: false
+        };
+
+        setFormData(updatedData);
+        onFormChange?.(updatedData);
+    }
+}, [userData, focalData]);
