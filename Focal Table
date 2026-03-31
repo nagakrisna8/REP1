@@ -2,7 +2,7 @@ import "../AdminTable.scss";
 import React, { memo, useCallback, useEffect, useRef, useState } from "react";
 import { FocalMasterTable, SortByData } from "../AdminModal";
 import { State, process } from "@progress/kendo-data-query";
-import SearchIcon from '@mui/icons-material/Search';
+import SearchIcon from "@mui/icons-material/Search";
 import {
     Grid as DataGrid,
     GridCellProps,
@@ -22,7 +22,9 @@ import {
     IconButton,
     InputAdornment,
     MenuItem,
-    Select, TextField, Typography
+    Select,
+    TextField,
+    Typography
 } from "@mui/material";
 
 import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
@@ -49,7 +51,11 @@ const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
 
 interface FocalTableProps {
     KEY: string;
-    columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
+    columnPropsBuilder: (field: any) => {
+        field: any;
+        columnMenu: (props: any) => JSX.Element;
+        headerClassName: string;
+    };
     focalData: FocalMasterTable[];
     dataState: State;
     dataStateChange: (event: GridDataStateChangeEvent) => void;
@@ -64,23 +70,31 @@ interface FocalTableProps {
     dragStart: (dataItem: FocalMasterTable) => void;
     reorder: (dataItem: FocalMasterTable) => void;
     sortBy: "custom" | "asc" | "desc" | undefined;
-    handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
+    handleSortByChange: (
+        key: keyof SortByData,
+        value: "custom" | "asc" | "desc",
+        setScreenDirty?: boolean
+    ) => void;
 }
 
 const FocalTable: React.FC<any> = memo((props) => {
-
     const gridRefBuilder = useRef<any>(null);
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
+    const [result, setResult] = useState<any>(null); // API response stored here
+
     const gridData = process(props.focalData, props.dataState).data;
 
     const formDataMapRef = useRef<{ [id: number]: any }>({});
 
-    const handleFormChange = useCallback((id: number, data: any) => {
-        formDataMapRef.current[id] = data;
-        props.setDirtyFlag?.(true);
-    }, [props]);
+    const handleFormChange = useCallback(
+        (id: number, data: any) => {
+            formDataMapRef.current[id] = data;
+            props.setDirtyFlag?.(true);
+        },
+        [props]
+    );
 
     const clearFormData = useCallback((id: number) => {
         delete formDataMapRef.current[id];
@@ -94,19 +108,21 @@ const FocalTable: React.FC<any> = memo((props) => {
                 1
             );
         }
-        setDetailExpand(prev => ({
+        setDetailExpand((prev) => ({
             ...prev,
             [id]: false
         }));
     };
+
     const expandChange = (dataItem: any) => {
         const key = dataItem.ID;
 
-        setDetailExpand(prev => ({
+        setDetailExpand((prev) => ({
             ...prev,
             [key]: !prev[key]
         }));
     };
+
     const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
         const expanded = detailExpand[cellProps.dataItem.ID];
 
@@ -117,11 +133,8 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         return (
             <td>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: 'center', gap: 6 }}>
-                    <span
-                        onClick={toggle}
-                        style={{ cursor: "pointer", display: "flex" }}
-                    >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    <span onClick={toggle} style={{ cursor: "pointer", display: "flex" }}>
                         {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
                     </span>
                 </div>
@@ -149,6 +162,7 @@ const FocalTable: React.FC<any> = memo((props) => {
             </div>
         );
     };
+
     const NameEditableCell: React.ComponentType<GridCellProps> = (cellProps) => {
         const dataItem = cellProps.dataItem;
 
@@ -170,30 +184,39 @@ const FocalTable: React.FC<any> = memo((props) => {
             });
         };
 
-        const handleSearch = (name: any) => {
-            let bemsId: number = 0;
+        const handleSearch = (searchValue: string) => {
             const getUserInfoData = {
                 reportId: null,
                 userType: null,
                 personName: null,
-                bemsId: bemsId,
+                bemsId: Number(searchValue) || 0,
                 projectId: null,
-                searchQuery: null
-            } as GetUserInfo;
+                searchQuery: searchValue || null
+            };
 
             UserLookupPopupService.getUserInfoByName(getUserInfoData)
                 .then((response) => {
-                    let gridData: any[] = [];
+                    const result = response?.data?.BluesDetails || [];
+                    setResult(result); // store API response here
 
-                    if (response?.data?.BluesDetails?.length > 0) {
-                        gridData = response.data.BluesDetails;
+                    if (result.length > 0) {
+                        const firstUser = result[0];
+
+                        cellProps.onChange?.({
+                            dataIndex: cellProps.dataIndex,
+                            dataItem: {
+                                ...dataItem,
+                                NAME: firstUser?.NAME || dataItem.NAME,
+                                PHONE: firstUser?.PHONE || dataItem.PHONE,
+                                EMAIL: firstUser?.EMAIL || dataItem.EMAIL,
+                                ADDRESS: firstUser?.ADDRESS || dataItem.ADDRESS,
+                                POSITION: firstUser?.POSITION || dataItem.POSITION
+                            },
+                            field: "NAME",
+                            syntheticEvent: {} as any,
+                            value: firstUser?.NAME || dataItem.NAME
+                        });
                     }
-
-                    setShowNoData(response.data.showNonUSMsg);
-                    setShowCardContent(true);
-                    AdminSearchDataDetails = gridData;
-                    setSearchResults(gridData[0]);
-                    setData(process(gridData, dataState));
                 })
                 .catch((error) => {
                     console.error("Error fetching data:", error);
@@ -202,7 +225,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
             if (e.key === "Enter") {
-                handleSearch(name);
+                handleSearch(dataItem.NAME);
             }
         };
 
@@ -230,12 +253,12 @@ const FocalTable: React.FC<any> = memo((props) => {
                                     <InputAdornment position="end">
                                         <IconButton
                                             className="kgrid-oss-csr-lookup-popup-search-icon"
-                                            onClick={handleSearch}
+                                            onClick={() => handleSearch(dataItem.NAME)}
                                         >
                                             <SearchIcon />
                                         </IconButton>
                                     </InputAdornment>
-                                ),
+                                )
                             }}
                         />
                     </div>
@@ -243,10 +266,8 @@ const FocalTable: React.FC<any> = memo((props) => {
                     <span>{dataItem.NAME || ""}</span>
                 )}
             </td>
-        )
-    }
-
-
+        );
+    };
 
     const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
         const dataItem = cellProps.dataItem;
@@ -254,18 +275,10 @@ const FocalTable: React.FC<any> = memo((props) => {
         return (
             <td>
                 <div style={{ display: "flex", gap: "12px" }}>
-                    <span style={{ minWidth: "120px" }}>
-                        {dataItem.ADDRESS || ""}
-                    </span>
-                    <span style={{ minWidth: "120px" }}>
-                        {dataItem.PHONE || ""}
-                    </span>
-                    <span style={{ minWidth: "120px" }}>
-                        {dataItem.POSITION || ""}
-                    </span>
-                    <span style={{ minWidth: "180px" }}>
-                        {dataItem.EMAIL || ""}
-                    </span>
+                    <span style={{ minWidth: "120px" }}>{dataItem.ADDRESS || ""}</span>
+                    <span style={{ minWidth: "120px" }}>{dataItem.PHONE || ""}</span>
+                    <span style={{ minWidth: "120px" }}>{dataItem.POSITION || ""}</span>
+                    <span style={{ minWidth: "180px" }}>{dataItem.EMAIL || ""}</span>
                 </div>
             </td>
         );
@@ -294,11 +307,7 @@ const FocalTable: React.FC<any> = memo((props) => {
         return (
             <td>
                 <div style={{ display: "flex", justifyContent: "center" }}>
-                    <input
-                        type="checkbox"
-                        checked={!!dataItem.ISACTIVE}
-                        onChange={handleChange}
-                    />
+                    <input type="checkbox" checked={!!dataItem.ISACTIVE} onChange={handleChange} />
                 </div>
             </td>
         );
@@ -309,6 +318,7 @@ const FocalTable: React.FC<any> = memo((props) => {
         let fixedWidth = totalColumnFixedWidth;
         let dynamicWidth = 0;
         let minScreenWidth = 1250;
+
         if (k_grid_width) {
             if (k_grid_width <= minScreenWidth) {
                 return minWidth;
@@ -318,11 +328,16 @@ const FocalTable: React.FC<any> = memo((props) => {
                     const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
                     return Math.max(minWidth, dynamicColumnWidth);
                 } else {
-                    return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined;
+                    return calculatedDynamicColWidth != 0
+                        ? minWidth > dynamicWidth - calculatedDynamicColWidth
+                            ? minWidth
+                            : undefined
+                        : undefined;
                 }
             }
         }
     };
+
     useEffect(() => {
         if (props.expandFocalId) {
             setDetailExpand({
@@ -330,18 +345,20 @@ const FocalTable: React.FC<any> = memo((props) => {
             });
         }
     }, [props.expandFocalId]);
+
     useEffect(() => {
         if (props.focalData?.length) {
-            const newRow = props.focalData.find(row => row.newFlag);
+            const newRow = props.focalData.find((row: any) => row.newFlag);
 
             if (newRow) {
-                setDetailExpand(prev => ({
+                setDetailExpand((prev) => ({
                     ...prev,
                     [newRow.ID]: true
                 }));
             }
         }
     }, [props.focalData]);
+
     return (
         <div style={{ height: "calc(100vh - 240px)" }}>
             <Card
@@ -349,7 +366,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     borderLeft: "4px solid #0033A1",
                     marginLeft: "22px",
                     overflow: "hidden",
-                    maxHeight: "calc(100vh - 240px)",
+                    maxHeight: "calc(100vh - 240px)"
                 }}
             >
                 <AnyGrid
@@ -369,80 +386,79 @@ const FocalTable: React.FC<any> = memo((props) => {
                     detailExpand={detailExpand}
                 >
                     <GridToolbar key="grid-toolbar">
-                        {
-                            <Button
-                                className="easalist-marginLeft10"
-                                id="createBtn"
-                                title="Create New"
-                                onClick={props.createFocal}
-                                size={"small"}
-                                color={"inherit"}
-                                variant={"outlined"}
+                        <Button
+                            className="easalist-marginLeft10"
+                            id="createBtn"
+                            title="Create New"
+                            onClick={props.createFocal}
+                            size={"small"}
+                            color={"inherit"}
+                            variant={"outlined"}
+                        >
+                            <AddCircleOutlineIcon className="iconClass" />
+                            <Typography
+                                variant={"button"}
+                                sx={{ textTransform: "none", fontSize: "14px" }}
                             >
-                                <AddCircleOutlineIcon className="iconClass" />
-                                <Typography
-                                    variant={"button"}
-                                    sx={{ textTransform: "none", fontSize: "14px" }}
-                                >
-                                    Create New
-                                </Typography>
-                            </Button>
-                        }
-                        {
-                            <Box
+                                Create New
+                            </Typography>
+                        </Button>
+
+                        <Box
+                            sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 1.5,
+                                position: "absolute",
+                                right: 20
+                            }}
+                        >
+                            <Typography
+                                variant="body2"
                                 sx={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 1.5,
-                                    position: "absolute",
-                                    right: 20,
+                                    color: "#253746",
+                                    fontWeight: 500,
+                                    whiteSpace: "nowrap"
                                 }}
                             >
-                                <Typography
-                                    variant="body2"
-                                    sx={{
-                                        color: "#253746",
-                                        fontWeight: 500,
-                                        whiteSpace: "nowrap",
+                                Sort Order :
+                            </Typography>
+
+                            <FormControl variant="outlined">
+                                <Select
+                                    id="register-type-select-dropdown"
+                                    className="text-normal"
+                                    style={{
+                                        width: "200px",
+                                        height: "32px",
+                                        fontSize: "14px",
+                                        color: "#253746"
                                     }}
+                                    value={props.sortBy || "custom"}
+                                    onChange={(e) =>
+                                        props.handleSortByChange(
+                                            "focal",
+                                            e.target.value as "custom" | "asc" | "desc"
+                                        )
+                                    }
                                 >
-                                    Sort Order :
-                                </Typography>
-                                <FormControl variant="outlined">
-                                    <Select
-                                        id="register-type-select-dropdown"
-                                        className="text-normal"
-                                        style={{
-                                            width: "200px",
-                                            height: "32px",
-                                            fontSize: "14px",
-                                            color: "#253746",
-                                        }}
-                                        value={props.sortBy || "custom"}
-                                        onChange={(e) =>
-                                            props.handleSortByChange(
-                                                "focal",
-                                                e.target.value as "custom" | "asc" | "desc"
-                                            )
-                                        }
-                                    >
-                                        <MenuItem value="custom">
-                                            <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                            Customize
-                                        </MenuItem>
-                                        <MenuItem value="asc">
-                                            <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                            Focal Management: Ascending
-                                        </MenuItem>
-                                        <MenuItem value="desc">
-                                            <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                                            Focal Management : Descending
-                                        </MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        }
+                                    <MenuItem value="custom">
+                                        <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                        Customize
+                                    </MenuItem>
+                                    <MenuItem value="asc">
+                                        <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                        Focal Management: Ascending
+                                    </MenuItem>
+                                    <MenuItem value="desc">
+                                        <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
+                                        Focal Management : Descending
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Box>
                     </GridToolbar>
+
                     <GridColumn
                         {...props.columnPropsBuilder("NAME")}
                         title="Focal Name"
@@ -451,16 +467,8 @@ const FocalTable: React.FC<any> = memo((props) => {
                     />
                     <GridColumn field="PHONE" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
                     <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
-                    <GridColumn
-                        title="Active"
-                        cells={{ data: activeCheckbox }}
-                        width="120px"
-                    />
-                    <GridColumn
-                        title="Focals"
-                        cells={{ data: ContactFocals }}
-                        width="100px"
-                    />
+                    <GridColumn title="Active" cells={{ data: activeCheckbox }} width="120px" />
+                    <GridColumn title="Focals" cells={{ data: ContactFocals }} width="100px" />
                 </AnyGrid>
             </Card>
         </div>
