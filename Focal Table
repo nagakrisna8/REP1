@@ -1,4 +1,4 @@
-const DetailComponent = (detailProps: any) => {
+const DetailComponent = useCallback((detailProps: any) => {
     const id = detailProps.dataItem.ID;
     return (
         <div>
@@ -18,4 +18,15 @@ const DetailComponent = (detailProps: any) => {
             />
         </div>
     );
-};
+}, [
+    userData,
+    props.saveFocal,
+    props.fetchFocal,
+    props.selectedOrgId,
+    props.selectedOrganizationId,
+    props.focalData,
+    props.setDirtyFlag,
+    cancelFocal,
+    handleFormChange,
+    clearFormData
+]);
