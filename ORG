@@ -1,387 +1,331 @@
-import "../AdminTable.scss";
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
-import { OrganizationTableData, SortByData } from "../AdminModal";
-import { State, process } from "@progress/kendo-data-query";
-import {
-  Grid as DataGrid,
-  GridCellProps,
-  GridColumn,
-  GridColumnMenuFilter,
-  GridColumnMenuProps,
-  GridDataStateChangeEvent,
-  GridItemChangeEvent,
-  GridToolbar
-} from "@progress/kendo-react-grid";
 
-import {
-  Box,
-  Button,
-  Card,
-  FormControl,
-  MenuItem,
-  Select,
-  TextField,
-  Typography
-} from "@mui/material";
+import React, { memo, useState, useEffect, useRef } from "react";
+import { Button, TextField, Typography } from "@mui/material";
+import { useDispatch } from "react-redux";
+import EasaListService from "../../EasaRegisterListService";
+import "./FocalForm.scss";
+import { MasterDataItem } from "../AdminModal";
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-import SettingsIcon from "@mui/icons-material/Settings";
-import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
-import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
-import SortIcon from "@mui/icons-material/Sort";
-import GroupIcon from "@mui/icons-material/Group";
-import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
-import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
-
-import { filterIcon } from "@progress/kendo-svg-icons";
-import FocalList from "./FocalList";
-
-const editField = "inEdit";
-const SELECTED_FIELD = "selected";
-const AnyGrid = DataGrid as any;
-
-const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
-  <div>
-    <GridColumnMenuFilter {...props} expanded />
-  </div>
-);
-interface OrganizationTypeTableProps {
-  KEY: string;
-  columnPropsBuilder: (field: any) => { field: any; columnMenu: (props: any) => JSX.Element; headerClassName: string };
-  organizationData: OrganizationTableData[];
-  dataState: State;
-  dataStateChange: (event: GridDataStateChangeEvent) => void;
-  itemChange: (event: GridItemChangeEvent) => void;
-  createOrganization: () => void;
-  saveOrganization: () => void;
-  onCreateFocal: () => void;
-  dragStart: (dataItem: OrganizationTableData) => void;
-  reorder: (dataItem: OrganizationTableData) => void;
-  sortBy: "custom" | "asc" | "desc" | undefined;
-  handleSortByChange: (key: keyof SortByData, value: "custom" | "asc" | "desc", setScreenDirty?: boolean) => void;
+interface FocalData {
+    ID?: number;
+    NAME?: string;
+    ADDRESS?: string;
+    PHONE?: number;
+    EMAIL?: string;
+    DEPARTMENT?: string;
+    TITLE?: string;
+    ISACTIVE?: boolean;
 }
 
-const OrganizationTable: React.FC<any> = memo((props) => {
+interface FocalFormProps {
+    focalData?: FocalData;
+    saveFocal?: () => void;
+    fetchFocal: (orgId: number, orgTypeId: number) => void;
+    focalList?: FocalData[];
+    cancelFocal?: (id: number) => void;
+    savedFormData?: any;
+    onFormChange?: (data: any) => void;
+    clearFormData?: () => void;
+    setDirtyFlag?: (flag: boolean) => void;
+    selectedOrgId: any;
+    selectedOrganizationId: any
+}
 
-  const gridRefBuilder = useRef<any>(null);
-  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
-  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId, setDirtyFlag }) => {
 
-  // expansion state
-  const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
+    const dispatch = useDispatch();
+    const debounceTimer = useRef<any>(null);
+    const initializedRef = useRef(false);
 
-  const expandChange = (dataItem: any) => {
-    const key = dataItem.ORGANIZATIONID;
-    setDetailExpand(prev => {
-      const isCurrentlyOpen = prev[key];
-      if (isCurrentlyOpen) {
-        return {};
-      }
-      return { [key]: true };
+    const [formData, setFormData] = useState(() => {
+        if (savedFormData) {
+            return savedFormData;
+        }
+        if (focalData) {
+            return {
+                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
+                name: focalData.NAME ?? "",
+                address: focalData.ADDRESS ?? "",
+                phone: String(focalData.PHONE ?? ""),
+                email: focalData.EMAIL ?? "",
+                position: focalData.DEPARTMENT ?? "",
+                title: focalData.TITLE ?? "",
+                isActive: focalData.ISACTIVE ?? false
+            };
+        }
+        return {
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false
+        };
     });
 
-  };
-  const gridData = process(props.organizationData, {
-    sort: props.dataState.sort,
-    filter: props.dataState.filter,
-    take: undefined,
-    skip: undefined
-  }).data;
-
-
-  const OrganizationCell: React.ComponentType<GridCellProps> = useCallback(
-    (cellProps) => {
-
-      const field = cellProps.field || "";
-      const value = cellProps.dataItem[field] ?? "";
-
-      const handleChange = (e: any) => {
-
-        const updated = { ...cellProps.dataItem };
-        updated[field] = e.target.value;
-
-        cellProps.onChange?.({
-          dataIndex: cellProps.dataIndex,
-          dataItem: updated,
-          field,
-          syntheticEvent: e,
-          value: e.target.value
-        });
-      };
-
-      return (
-        <td>
-          <TextField fullWidth value={value} onChange={handleChange} />
-        </td>
-      );
-    },
-    []
-  );
-
-  const DragCell: React.ComponentType<GridCellProps> = (dragcellprops) => (
-    <td
-      onDragOver={(e) => {
-        e.preventDefault();
-        props.reorder(dragcellprops.dataItem);
-      }}
-    >
-      <span
-        draggable
-        style={{
-          cursor: "move",
-          display: "flex",
-          //justifyContent: "center"
-        }}
-        onDragStart={() => props.dragStart(dragcellprops.dataItem)}
-      >
-        <SortIcon />
-      </span>
-    </td>
-  );
-
-  // Custom arrow column
-  const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
-
-    const expanded = detailExpand[cellProps.dataItem.ORGANIZATIONID];
-
-    const toggle = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      expandChange(cellProps.dataItem);
-    };
-
-    return (
-      <td>
-        <div style={{ display: "flex", justifyContent: 'center', alignItems: "center", gap: 6, }}>
-          <GroupIcon />
-
-          <span
-            onClick={toggle}
-            style={{ cursor: "pointer", display: "flex" }}
-          >
-            {expanded ? <ArrowDropUpIcon /> : <ArrowDropDownIcon />}
-          </span>
-        </div>
-      </td>
-    );
-  };
-
-  const DetailComponent = (detailProps: any) => {
-
-    const orgName = detailProps.dataItem.ORGANIZATIONID;
-
-    return (
-      <div>
-        <FocalList orgName={orgName} orgType={props.selectedOrgId} onCreateFocal={props.onCreateFocal} />
-      </div>
-    );
-  };
-  const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
-    const dataItem = cellProps.dataItem;
+    useEffect(() => {
+        return () => {
+            if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        };
+    }, []);
 
     const handleChange = (e: any) => {
-      const updated = {
-        ...dataItem,
-        ISACTIVE: e.target.checked
-      };
+        const updated = {
+            ...formData,
+            [e.target.name]: e.target.value
+        };
+        setFormData(updated);
 
-      cellProps.onChange?.({
-        dataIndex: cellProps.dataIndex,
-        dataItem: updated,
-        field: cellProps.field,
-        syntheticEvent: {} as React.SyntheticEvent,
-        value: e.target.checked
-      });
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            onFormChange?.(updated);
+        }, 400);
     };
 
+    const handleCancel = () => {
+        clearFormData?.();
+
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+
+        if ((focalData as any)?.newFlag) {
+            setFormData({
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: false
+            });
+        } else {
+            setFormData({
+                id: focalData?.ID ?? 0,
+                name: focalData?.NAME ?? "",
+                address: focalData?.ADDRESS ?? "",
+                phone: String(focalData?.PHONE ?? ""),
+                email: focalData?.EMAIL ?? "",
+                position: focalData?.DEPARTMENT ?? "",
+                title: focalData?.TITLE ?? "",
+                isActive: focalData?.ISACTIVE ?? false
+            });
+        }
+
+        if (cancelFocal && focalData?.ID !== undefined) {
+            cancelFocal(focalData.ID);
+        }
+    };
+
+    const handleSave = async () => {
+
+        if (!formData.name || formData.name.trim() === "") {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Focal Name is required."
+            }));
+            return;
+        }
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (formData.email && !emailRegex.test(formData.email)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Email Address"
+            }));
+            return;
+        }
+        let isDuplicate = false;
+        if (formData.email && formData.email.trim() !== "") {
+            isDuplicate = focalList?.some(
+                (item: FocalData) =>
+                    item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
+                    item.ID !== formData.id
+            );
+        } else {
+            isDuplicate = focalList?.some(
+                (item: FocalData) =>
+                    item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
+                    item.ID !== formData.id
+            );
+        }
+
+        if (isDuplicate) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: formData.email
+                    ? "Email must be unique."
+                    : "Focal Name must be unique."
+            }));
+            return;
+        }
+
+        if (formData.phone && !/^\d+$/.test(formData.phone)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Invalid Phone Number"
+            }));
+            return;
+        }
+
+        const items: MasterDataItem[] = [];
+
+        items.push({
+            Id: formData.id ?? 0,
+            OperationType: formData.id ? "update" : "add",
+            Name: formData.name.trim(),
+            Description: "",
+            IsActive: formData.isActive ? "Y" : "N",
+            Notes: "",
+            Address: formData.address ?? "",
+            Department: formData.position ?? "",
+            Phone: formData.phone ?? "",
+            Email: formData.email ?? "",
+            Title: formData.title ?? "",
+            orgTypeId: selectedOrgId ?? 0,
+            orgId: selectedOrganizationId ?? 0,
+        });
+
+        const payload = {
+            MasterDataType: "Focal Management",
+            Items: items
+        };
+
+        try {
+            const response = await EasaListService.addMasterDataType(payload);
+            if (response?.data === -1) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Error in saving the data."
+                }));
+                return;
+            }
+
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "success",
+                snackbarMessage: "Focal saved successfully."
+            }));
+            if (clearFormData) clearFormData();
+            setDirtyFlag?.(false);
+            if (cancelFocal && focalData?.ID !== undefined) {
+                cancelFocal(focalData.ID);
+            }
+            setTimeout(() => {
+                fetchFocal?.(selectedOrgId, selectedOrganizationId);
+            }, 0)
+        } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Error saving Focal."
+            }));
+            console.error("Error saving focal:", error);
+        }
+    };
+    
     return (
-      <td>
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <input
-            type="checkbox"
-            checked={dataItem.ISACTIVE}
-            onChange={handleChange}
-          />
+        <div style={{ padding: "10px" }}>
+
+            <div className="form-header">
+                {formData.id ? "Edit Focal" : "Add Focal"}
+            </div>
+
+            <div className="form-grid">
+
+                {/* LEFT SIDE */}
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Focal Name</label>
+                        <TextField
+                            name="name"
+                            value={formData.name}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Address</label>
+                        <TextField
+                            name="address"
+                            value={formData.address}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Position</label>
+                        <TextField
+                            name="position"
+                            value={formData.position}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                </div>
+
+                {/* RIGHT SIDE */}
+                <div className="form-column">
+
+                    <div className="form-row">
+                        <label>Phone Number</label>
+                        <TextField
+                            name="phone"
+                            value={formData.phone}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Email</label>
+                        <TextField
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                    <div className="form-row">
+                        <label>Title</label>
+                        <TextField
+                            name="title"
+                            value={formData.title}
+                            onChange={handleChange}
+                            size="small"
+                            fullWidth
+                        />
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div className="form-actions">
+                <Typography id="modal-modal-btn" className='buttonSection' sx={{ mt: 2 }} textAlign={'end'} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingBlock: '0px', paddingInline: '0px', marginTop: '10px' }}>
+                    <Button variant="outlined" size="small" onClick={handleCancel} className={"cancelButtonUserDefined"}>Cancel</Button>
+                    <Button variant="contained" size="small" onClick={handleSave} className="deleteButton">Save</Button>
+                </Typography>
+            </div>
+
         </div>
-      </td>
     );
-  };
-  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-    let k_grid_width = document.querySelector("#kgrid-oss-checklistType_org")?.clientWidth;
-    let fixedWidth = totalColumnFixedWidth;
-    let dynamicWidth = 0;
-    let minScreenWidth = 1250;
-    let maxScreenWidth;
-    if (k_grid_width) {
-      if (k_grid_width <= minScreenWidth) {
-        return minWidth;
-      }
-      else {
-        dynamicWidth = k_grid_width - fixedWidth;
-        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
-          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
-          return Math.max(minWidth, dynamicColumnWidth);
-        }
-        else {
-          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
-        }
-      }
-    }
-  }
-  return (
-    <div
-    //  style={{ height: "calc(100vh - 240px)" , overflow:'hidden'}}
-    >
-      <Card
-        style={{
-          borderLeft: "4px solid #0033A1",
-          marginLeft: "22px",
-          overflow: "hidden",
-        }}
-      >
-        <AnyGrid
-          ref={gridRefBuilder}
-          id="kgrid-oss-checklistType_org"
-          data={gridData}
-          dataItemKey="ORGANIZATIONID"
-          resizable
-          editField={editField}
-          // {...props.dataState}
-          selectedField={SELECTED_FIELD}
-          onDataStateChange={props.dataStateChange}
-          onItemChange={props.itemChange}
-          columnMenuIcon={filterIcon}
-          detail={DetailComponent}
-          detailExpand={detailExpand}
-        >
-
-          <GridToolbar key="grid-toolbar">
-            {
-              <Button
-                className="easalist-marginLeft10"
-                id="createBtn"
-                title="Create New"
-                onClick={props.createOrganization}
-                size={"small"}
-                color={"inherit"}
-                variant={"outlined"}
-
-              >
-                <AddCircleOutlineIcon className="iconClass" />
-                <Typography
-                  variant={"button"}
-                  sx={{ textTransform: "none", fontSize: "14px" }}
-                >
-                  Create New
-                </Typography>
-              </Button>
-            }
-
-            {
-              < Button
-                className="easalist-marginLeft10"
-                id="saveBtn"
-                title="Save"
-                onClick={props.saveOrganization}
-                variant={"outlined"}
-                size={"small"}
-                color={"inherit"}
-              >
-                <Typography
-                  variant={"button"}
-                  sx={{ textTransform: "none", fontSize: "14px" }}
-                >
-                  Save
-                </Typography>
-              </Button >
-            }
-            {
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 1.5,
-                  position: "absolute",
-                  right: 20,
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "#253746",
-                    fontWeight: 500,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  Sort Order :
-                </Typography>
-                <FormControl variant="outlined">
-                  <Select
-                    id="register-type-select-dropdown"
-                    className="text-normal"
-                    style={{
-                      width: "200px",
-                      height: "32px",
-                      fontSize: "14px",
-                      color: "#253746",
-                    }}
-                    value={props.sortBy || "custom"}
-                    onChange={(e) =>
-                      props.handleSortByChange(
-                        "organization",
-                        e.target.value as "custom" | "asc" | "desc"
-                      )
-                    }
-                  >
-                    <MenuItem value="custom">
-                      <SettingsIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                      Customize
-                    </MenuItem>
-                    <MenuItem value="asc">
-                      <ArrowUpwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                      Organization : Ascending
-                    </MenuItem>
-                    <MenuItem value="desc">
-                      <ArrowDownwardIcon style={{ height: 16, width: 16, marginRight: 8 }} />
-                      Organization : Descending
-                    </MenuItem>
-                  </Select>
-                </FormControl>
-              </Box>
-            }
-          </GridToolbar >
-          <GridColumn title="Sort" cells={{ data: DragCell }} width="70px" />
-          <GridColumn
-            {...props.columnPropsBuilder("ORGANIZATIONNAME")}
-            title="Organization Name"
-            cells={{ data: OrganizationCell }}
-            width={setPercentage(undefined, 0, 272)}
-          />
-          <GridColumn
-            {...props.columnPropsBuilder("ORGANIZATIONDESCRIPTION")}
-            title="Description"
-            cells={{ data: OrganizationCell }}
-            width={setPercentage(undefined, 0, 272)}
-          />
-          <GridColumn
-            title="Active"
-            cells={{ data: activeCheckbox }}
-            width="90px"
-          />
-          <GridColumn
-            {...props.columnPropsBuilder("NOTES")}
-            title="Notes"
-            cells={{ data: OrganizationCell }}
-            width={setPercentage(undefined, 0, 472)}
-          />
-          <GridColumn
-            title="Contact Focals"
-            cells={{ data: ContactFocals }}
-            width="150px"
-          />
-        </AnyGrid>
-      </Card>
-    </div>
-  );
 });
 
-export default OrganizationTable;
+export default FocalForm;
