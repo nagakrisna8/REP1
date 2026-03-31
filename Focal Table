@@ -36,13 +36,10 @@ import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
 
 import { filterIcon } from "@progress/kendo-svg-icons";
 import FocalForm from "../Focal/FocalForm";
-import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
-import UserLookupPopupService from "../../../csr-details/revision-record/user-lookup-popup/UserLookupPopupService";
 import { useParams } from "react-router-dom";
 import EasaRegisterListService from "../../EasaRegisterListService";
 
 const editField = "inEdit";
-const SELECTED_FIELD = "selected";
 const AnyGrid = DataGrid as any;
 
 const GridFilterMenuWithoutSort = (props: GridColumnMenuProps) => (
@@ -79,16 +76,70 @@ interface FocalTableProps {
     ) => void;
 }
 
+/** =========================
+ * Stable memoized BEMS input
+ * ========================= */
+interface BemsSearchInputProps {
+    value: string;
+    onChange: (value: string) => void;
+    onSearch: () => void;
+    onEnter: () => void;
+}
+
+const BemsSearchInput = React.memo(
+    ({ value, onChange, onSearch, onEnter }: BemsSearchInputProps) => {
+        return (
+            <div style={{ width: "100%" }}>
+                <TextField
+                    variant="standard"
+                    value={value}
+                    style={{ width: "100%" }}
+                    onChange={(e) => onChange(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                            onEnter();
+                        }
+                    }}
+                    placeholder="BEMS ID"
+                    className="kgrid-oss-csr-lookup-popup-input"
+                    inputProps={{
+                        style: {
+                            fontSize: 14,
+                            color: "#253746",
+                            fontWeight: "normal"
+                        }
+                    }}
+                    InputProps={{
+                        endAdornment: (
+                            <InputAdornment position="end">
+                                <IconButton
+                                    className="kgrid-oss-csr-lookup-popup-search-icon"
+                                    onClick={onSearch}
+                                >
+                                    <SearchIcon />
+                                </IconButton>
+                            </InputAdornment>
+                        )
+                    }}
+                />
+            </div>
+        );
+    }
+);
+
 const FocalTable: React.FC<any> = memo((props) => {
     const gridRefBuilder = useRef<any>(null);
     const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
-    const [detailExpand, setDetailExpand] = React.useState<{ [key: number]: boolean }>({});
+    const [detailExpand, setDetailExpand] = useState<{ [key: number]: boolean }>({});
     const [result, setResult] = useState<any>(null);
+
+    /** Separate temporary BEMS input per row */
+    const [searchInput, setSearchInput] = useState<{ [key: number]: string }>({});
+
     const { reportId } = useParams();
 
     const gridData = process(props.focalData, props.dataState).data;
-
     const formDataMapRef = useRef<{ [id: number]: any }>({});
 
     const handleFormChange = useCallback(
@@ -103,7 +154,7 @@ const FocalTable: React.FC<any> = memo((props) => {
         delete formDataMapRef.current[id];
     }, []);
 
-    const cancelFocal = (id: number) => {
+    const cancelFocal = useCallback((id: number) => {
         const row = props.focalData.find((item: any) => item.ID === id);
         if (row?.newFlag) {
             props.focalData.splice(
@@ -111,22 +162,29 @@ const FocalTable: React.FC<any> = memo((props) => {
                 1
             );
         }
+
         setDetailExpand((prev) => ({
             ...prev,
             [id]: false
         }));
-    };
 
-    const expandChange = (dataItem: any) => {
+        setSearchInput((prev) => {
+            const updated = { ...prev };
+            delete updated[id];
+            return updated;
+        });
+    }, [props.focalData]);
+
+    const expandChange = useCallback((dataItem: any) => {
         const key = dataItem.ID;
 
         setDetailExpand((prev) => ({
             ...prev,
             [key]: !prev[key]
         }));
-    };
+    }, []);
 
-    const ContactFocals: React.ComponentType<GridCellProps> = (cellProps) => {
+    const ContactFocals: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
         const expanded = detailExpand[cellProps.dataItem.ID];
 
         const toggle = (e: React.MouseEvent) => {
@@ -143,9 +201,9 @@ const FocalTable: React.FC<any> = memo((props) => {
                 </div>
             </td>
         );
-    };
+    }, [detailExpand, expandChange]);
 
-    const DetailComponent = (detailProps: any) => {
+    const DetailComponent = useCallback((detailProps: any) => {
         const id = detailProps.dataItem.ID;
         return (
             <div>
@@ -164,131 +222,97 @@ const FocalTable: React.FC<any> = memo((props) => {
                 />
             </div>
         );
-    };
+    }, [
+        props.saveFocal,
+        props.fetchFocal,
+        props.selectedOrgId,
+        props.selectedOrganizationId,
+        props.focalData,
+        props.setDirtyFlag,
+        cancelFocal,
+        handleFormChange,
+        clearFormData
+    ]);
 
-    const NameEditableCell: React.ComponentType<GridCellProps> = (cellProps) => {
+    /** =========================
+     * Search API call
+     * ========================= */
+    const handleSearch = useCallback(
+        async (dataItem: any, cellProps: GridCellProps) => {
+            const bemsValue = searchInput[dataItem.ID]?.trim();
+
+            if (!bemsValue) return;
+
+            try {
+                const response = await EasaRegisterListService.GetUserDetail(Number(bemsValue));
+                const apiResult = response?.data || null;
+
+                setResult(apiResult);
+
+                if (apiResult) {
+                    /** Update row fields automatically */
+                    props.itemChange?.({
+                        dataIndex: cellProps.dataIndex,
+                        dataItem: {
+                            ...dataItem,
+                            NAME: apiResult?.UserName || dataItem.NAME,
+                            PHONE: apiResult?.PhoneNo || dataItem.PHONE,
+                            EMAIL: apiResult?.Email || dataItem.EMAIL
+                        },
+                        field: "NAME",
+                        syntheticEvent: {} as any,
+                        value: apiResult?.UserName || dataItem.NAME
+                    });
+
+                    /** Clear BEMS input after successful search if you want */
+                    setSearchInput((prev) => ({
+                        ...prev,
+                        [dataItem.ID]: ""
+                    }));
+                }
+            } catch (error) {
+                console.error("Error fetching data:", error);
+            }
+        },
+        [searchInput, props.itemChange]
+    );
+
+    /** =========================
+     * Name Cell
+     * ========================= */
+    const NameEditableCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
         const dataItem = cellProps.dataItem;
-
         const isExpanded = !!detailExpand[dataItem.ID];
         const showSearchField = isExpanded && !!dataItem.newFlag;
 
-        const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-            const value = e.target.value;
+        const bemsValue = searchInput[dataItem.ID] ?? "";
 
-            cellProps.onChange?.({
-                dataIndex: cellProps.dataIndex,
-                dataItem: {
-                    ...dataItem,
-                    NAME: value
-                },
-                field: "NAME",
-                syntheticEvent: e,
-                value
-            });
-        };
-
-        const handleSearch = (searchValue: string) => {
-            const getUserInfoData: any = {
-                reportId : Number(reportId),
-                userType: null,
-                personName: null,
-                bemsId: Number(searchValue) || 0,
-                projectId: null,
-                searchQuery: searchValue || null
-            };
-
-            EasaRegisterListService.GetUserDetail(Number(searchValue))
-                .then((response) => {
-                    console.log(response, 'response');
-                    const result = response?.data || [];
-                    setResult(result); 
-
-                    if (result.length > 0) {
-                        const firstUser = result[0];
-
-                        cellProps.onChange?.({
-                            dataIndex: cellProps.dataIndex,
-                            dataItem: {
-                                ...dataItem,
-                                NAME: firstUser?.NAME || dataItem.NAME,
-                                PHONE: firstUser?.PHONE || dataItem.PHONE,
-                                EMAIL: firstUser?.EMAIL || dataItem.EMAIL,
-                                ADDRESS: firstUser?.ADDRESS || dataItem.ADDRESS,
-                                POSITION: firstUser?.POSITION || dataItem.POSITION
-                            },
-                            field: "NAME",
-                            syntheticEvent: {} as any,
-                            value: firstUser?.NAME || dataItem.NAME
-                        });
-                    }
-                })
-                .catch((error) => {
-                    console.error("Error fetching data:", error);
-                });
-        };
-
-        const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "Enter") {
-                handleSearch(dataItem.NAME);
-            }
-        };
-
-        return (
-            <td>
-                {showSearchField ? (
-                    <div style={{ width: "100%" }}>
-                        <TextField
-                            variant="standard"
-                            value={dataItem.NAME || ""}
-                            style={{ width: "100%" }}
-                            onChange={handleChange}
-                            onKeyDown={handleKeyDown}
-                            placeholder="BEMS ID"
-                            className="kgrid-oss-csr-lookup-popup-input"
-                            inputProps={{
-                                style: {
-                                    fontSize: 14,
-                                    color: "#253746",
-                                    fontWeight: "normal"
-                                }
-                            }}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            className="kgrid-oss-csr-lookup-popup-search-icon"
-                                            onClick={() => handleSearch(dataItem.NAME)}
-                                        >
-                                            <SearchIcon />
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </div>
-                ) : (
+        if (!showSearchField) {
+            return (
+                <td>
                     <span>{dataItem.NAME || ""}</span>
-                )}
-            </td>
-        );
-    };
-
-    const FocalInformationCell: React.ComponentType<GridCellProps> = (cellProps) => {
-        const dataItem = cellProps.dataItem;
+                </td>
+            );
+        }
 
         return (
             <td>
-                <div style={{ display: "flex", gap: "12px" }}>
-                    <span style={{ minWidth: "120px" }}>{dataItem.ADDRESS || ""}</span>
-                    <span style={{ minWidth: "120px" }}>{dataItem.PHONE || ""}</span>
-                    <span style={{ minWidth: "120px" }}>{dataItem.POSITION || ""}</span>
-                    <span style={{ minWidth: "180px" }}>{dataItem.EMAIL || ""}</span>
-                </div>
+                <BemsSearchInput
+                    value={bemsValue}
+                    onChange={(value) => {
+                        setSearchInput((prev) => ({
+                            ...prev,
+                            [dataItem.ID]: value
+                        }));
+                    }}
+                    onSearch={() => handleSearch(dataItem, cellProps)}
+                    onEnter={() => handleSearch(dataItem, cellProps)}
+                />
             </td>
         );
-    };
+    }, [detailExpand, searchInput, handleSearch]);
 
-    const activeCheckbox: React.ComponentType<GridCellProps> = (cellProps) => {
+    const activeCheckbox: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
         const dataItem = cellProps.dataItem;
 
         const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -315,7 +339,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                 </div>
             </td>
         );
-    };
+    }, []);
 
     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
         let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
@@ -469,8 +493,16 @@ const FocalTable: React.FC<any> = memo((props) => {
                         width={setPercentage(undefined, 0, 272)}
                         cells={{ data: NameEditableCell }}
                     />
-                    <GridColumn field="PHONE" title="Phone Number" width={setPercentage(undefined, 0, 272)} />
-                    <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
+                    <GridColumn
+                        field="PHONE"
+                        title="Phone Number"
+                        width={setPercentage(undefined, 0, 272)}
+                    />
+                    <GridColumn
+                        field="EMAIL"
+                        title="Email"
+                        width={setPercentage(undefined, 0, 272)}
+                    />
                     <GridColumn title="Active" cells={{ data: activeCheckbox }} width="120px" />
                     <GridColumn title="Focals" cells={{ data: ContactFocals }} width="100px" />
                 </AnyGrid>
@@ -480,14 +512,3 @@ const FocalTable: React.FC<any> = memo((props) => {
 });
 
 export default FocalTable;
-
-{
-    "BemsId": 3818396,
-    "UserName": "Yarra, Nagakrishna",
-    "PhoneNo": "+91 7032679657",
-    "MailCode": null,
-    "Email": "nagakrishna.yarra@boeing.com",
-    "ActiveFlag": null,
-    "AdminFlag": null,
-    "Role": null
-}
