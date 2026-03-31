@@ -98,6 +98,7 @@ const BemsSearchInput = React.memo(
                         }
                     }}
                     placeholder="BEMS ID"
+                    autoComplete="off"
                     className="kgrid-oss-csr-lookup-popup-input"
                     inputProps={{
                         style: {
@@ -111,6 +112,7 @@ const BemsSearchInput = React.memo(
                             <InputAdornment position="end">
                                 <IconButton
                                     className="kgrid-oss-csr-lookup-popup-search-icon"
+                                    onMouseDown={(e) => e.preventDefault()}
                                     onClick={onSearch}
                                 >
                                     <SearchIcon />
@@ -130,7 +132,6 @@ const FocalTable: React.FC<any> = memo((props) => {
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
     const [detailExpand, setDetailExpand] = useState<{ [key: number]: boolean }>({});
     const [userData, setUserData] = useState<any>(null);
-    /** Separate temporary BEMS input per row */
     const [searchInput, setSearchInput] = useState<{ [key: number]: string }>({});
     const { reportId } = useParams();
 
@@ -203,7 +204,7 @@ const FocalTable: React.FC<any> = memo((props) => {
         return (
             <div>
                 <FocalForm
-                    userData ={userData}
+                    userData={userData}
                     focalData={detailProps.dataItem}
                     saveFocal={props.saveFocal}
                     fetchFocal={props.fetchFocal}
@@ -219,6 +220,7 @@ const FocalTable: React.FC<any> = memo((props) => {
             </div>
         );
     }, [
+        userData,
         props.saveFocal,
         props.fetchFocal,
         props.selectedOrgId,
@@ -230,9 +232,16 @@ const FocalTable: React.FC<any> = memo((props) => {
         clearFormData
     ]);
 
-    /** =========================
-     * Search API call
-     * ========================= */
+    const handleSearchInputChange = useCallback((id: number, value: string) => {
+        setSearchInput((prev) => {
+            if (prev[id] === value) return prev;
+            return {
+                ...prev,
+                [id]: value
+            };
+        });
+    }, []);
+
     const handleSearch = useCallback(
         async (dataItem: any, cellProps: GridCellProps) => {
             const bemsValue = searchInput[dataItem.ID]?.trim();
@@ -243,8 +252,8 @@ const FocalTable: React.FC<any> = memo((props) => {
                 const response = await EasaRegisterListService.GetUserDetail(Number(bemsValue));
                 const apiResult = response?.data || null;
                 setUserData(apiResult);
+
                 if (apiResult) {
-                    /** Update row fields automatically */
                     props.itemChange?.({
                         dataIndex: cellProps.dataIndex,
                         dataItem: {
@@ -258,7 +267,6 @@ const FocalTable: React.FC<any> = memo((props) => {
                         value: apiResult?.UserName || dataItem.NAME
                     });
 
-                    /** Clear BEMS input after successful search if you want */
                     setSearchInput((prev) => ({
                         ...prev,
                         [dataItem.ID]: ""
@@ -271,10 +279,7 @@ const FocalTable: React.FC<any> = memo((props) => {
         [searchInput, props.itemChange]
     );
 
-    /** =========================
-     * Name Cell
-     * ========================= */
-    const NameEditableCell: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
+    const NameEditableCell = (cellProps: GridCellProps) => {
         const dataItem = cellProps.dataItem;
         const isExpanded = !!detailExpand[dataItem.ID];
         const showSearchField = isExpanded && !!dataItem.newFlag;
@@ -293,18 +298,13 @@ const FocalTable: React.FC<any> = memo((props) => {
             <td>
                 <BemsSearchInput
                     value={bemsValue}
-                    onChange={(value) => {
-                        setSearchInput((prev) => ({
-                            ...prev,
-                            [dataItem.ID]: value
-                        }));
-                    }}
+                    onChange={(value) => handleSearchInputChange(dataItem.ID, value)}
                     onSearch={() => handleSearch(dataItem, cellProps)}
                     onEnter={() => handleSearch(dataItem, cellProps)}
                 />
             </td>
         );
-    }, [detailExpand, searchInput, handleSearch]);
+    };
 
     const activeCheckbox: React.ComponentType<GridCellProps> = useCallback((cellProps) => {
         const dataItem = cellProps.dataItem;
