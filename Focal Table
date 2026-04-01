@@ -1,12 +1,5 @@
-useEffect(() => {
-    setUserData(null);
-    formDataMapRef.current = {};
-    setDetailExpand({});
-}, [props.selectedOrgId, props.selectedOrganizationId]);
-
-
-onClick={() => {
-    setUserData(null);
-    formDataMapRef.current = {};
-    props.createFocal();
-}}
+.focal-grid-compact .k-table-tbody tr td {
+  height: auto !important;
+  min-height: 44px !important;
+  padding-block: 8px !important;
+}
