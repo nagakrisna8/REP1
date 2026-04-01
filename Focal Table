@@ -1,7 +1,7 @@
 const handleSearch = useCallback(
     async (bemsValue: string, dataItem: any, cellProps: GridCellProps) => {
 
-        // ✅ VALIDATION ADDED
+        // ✅ Validation 1: Only numbers allowed
         if (!/^\d+$/.test(bemsValue)) {
             dispatch(showSnackbar({
                 snackbarOpen: true,
@@ -23,23 +23,40 @@ const handleSearch = useCallback(
         try {
             const response = await UserLookupPopupService.getUserInfoByName(getUserInfoData);
             const apiResult = response?.data?.BluesDetails || null;
+
+            // ✅ Validation 2: BEMS not found / empty response
+            if (!apiResult || (Array.isArray(apiResult) && apiResult.length === 0)) {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "BEMS ID does not exist in CED"
+                }));
+                setUserData(null);
+                return;
+            }
+
             setUserData(apiResult);
 
-            if (apiResult) {
-                props.itemChange?.({
-                    dataIndex: cellProps.dataIndex,
-                    dataItem: {
-                        ...dataItem,
-                        NAME: apiResult?.UserName || dataItem.NAME,
-                        PHONE: apiResult?.PhoneNo || dataItem.PHONE,
-                        EMAIL: apiResult?.Email || dataItem.EMAIL
-                    },
-                    field: "NAME",
-                    syntheticEvent: {} as any,
-                    value: apiResult?.UserName || dataItem.NAME
-                });
-            }
+            // ✅ Populate fields
+            props.itemChange?.({
+                dataIndex: cellProps.dataIndex,
+                dataItem: {
+                    ...dataItem,
+                    NAME: apiResult?.UserName || dataItem.NAME,
+                    PHONE: apiResult?.PhoneNo || dataItem.PHONE,
+                    EMAIL: apiResult?.Email || dataItem.EMAIL
+                },
+                field: "NAME",
+                syntheticEvent: {} as any,
+                value: apiResult?.UserName || dataItem.NAME
+            });
+
         } catch (error) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "BEMS ID does not exist in CED"
+            }));
             console.error("Error fetching data:", error);
         }
     },
