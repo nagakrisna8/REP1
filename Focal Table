@@ -1,14 +1,6 @@
-const isBemsUser = (focalData as any)?.newFlag && !!formData.id;
-
 useEffect(() => {
-    if (savedFormData) {
-        setFormData(savedFormData);
-        return;
-    }
-
-    // CREATE NEW FORM
     if ((focalData as any)?.newFlag) {
-        if (userData && userData.length > 0) {
+        if (userData && userData?.length > 0) {
             const user = userData[0];
 
             const updatedData = {
@@ -19,7 +11,8 @@ useEffect(() => {
                 email: user.Email ?? "",
                 position: "",
                 title: "",
-                isActive: user.ActiveFlag === "Y"
+                isActive: user.ActiveFlag === "Y" ? true : false,
+                isBemsRecord: true
             };
 
             setFormData(updatedData);
@@ -33,42 +26,12 @@ useEffect(() => {
                 email: "",
                 position: "",
                 title: "",
-                isActive: false
+                isActive: false,
+                isBemsRecord: false
             };
 
             setFormData(emptyData);
             onFormChange?.(emptyData);
         }
-        return;
     }
-
-    // EDIT EXISTING FORM
-    if (focalData) {
-        const editData = {
-            id: focalData.ID ?? 0,
-            name: focalData.NAME ?? "",
-            address: focalData.ADDRESS ?? "",
-            phone: String(focalData.PHONE ?? ""),
-            email: focalData.EMAIL ?? "",
-            position: focalData.DEPARTMENT ?? "",
-            title: focalData.TITLE ?? "",
-            isActive: focalData.ISACTIVE ?? false
-        };
-
-        setFormData(editData);
-        onFormChange?.(editData);
-        return;
-    }
-
-    // FALLBACK RESET
-    setFormData({
-        id: 0,
-        name: "",
-        address: "",
-        phone: "",
-        email: "",
-        position: "",
-        title: "",
-        isActive: false
-    });
-}, [focalData, savedFormData, userData]);
+}, [userData, focalData]);
