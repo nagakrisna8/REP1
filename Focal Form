@@ -74,9 +74,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             isBemsRecord: false
         };
     });
-
     const isBemsUser = !!formData.isBemsRecord;
-
     useEffect(() => {
         return () => {
             if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -241,9 +239,9 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
-
-    useEffect(() => {
-        if ((focalData as any)?.newFlag && userData && userData?.length > 0) {
+ useEffect(() => {
+    if ((focalData as any)?.newFlag) {
+        if (userData && userData?.length > 0) {
             const user = userData[0];
 
             const updatedData = {
@@ -260,9 +258,25 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
             setFormData(updatedData);
             onFormChange?.(updatedData);
-        }
-    }, [userData, focalData]);
+        } else {
+            const emptyData = {
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: true,
+                isBemsRecord: false
+            };
 
+            setFormData(emptyData);
+            onFormChange?.(emptyData);
+        }
+    }
+}, [userData, focalData]);
+console.log(formData, 'formData');
     return (
         <div style={{ padding: "10px" }}>
 
