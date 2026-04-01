@@ -1,5 +1,47 @@
-.focal-grid-compact .k-table-tbody tr td {
-  height: auto !important;
-  min-height: 44px !important;
-  padding-block: 8px !important;
-}
+const handleSearch = useCallback(
+    async (bemsValue: string, dataItem: any, cellProps: GridCellProps) => {
+
+        // ✅ VALIDATION ADDED
+        if (!/^\d+$/.test(bemsValue)) {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "BEMS ID should contain only numbers"
+            }));
+            return;
+        }
+
+        let getUserInfoData: any = {
+            reportId: 0,
+            userType: "",
+            personName: "",
+            bemsId: bemsValue,
+            projectId: 0,
+            searchQuery: ""
+        };
+
+        try {
+            const response = await UserLookupPopupService.getUserInfoByName(getUserInfoData);
+            const apiResult = response?.data?.BluesDetails || null;
+            setUserData(apiResult);
+
+            if (apiResult) {
+                props.itemChange?.({
+                    dataIndex: cellProps.dataIndex,
+                    dataItem: {
+                        ...dataItem,
+                        NAME: apiResult?.UserName || dataItem.NAME,
+                        PHONE: apiResult?.PhoneNo || dataItem.PHONE,
+                        EMAIL: apiResult?.Email || dataItem.EMAIL
+                    },
+                    field: "NAME",
+                    syntheticEvent: {} as any,
+                    value: apiResult?.UserName || dataItem.NAME
+                });
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    },
+    [props.itemChange, dispatch]
+);
