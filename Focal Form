@@ -15,7 +15,9 @@ interface FocalData {
     DEPARTMENT?: string;
     TITLE?: string;
     ISACTIVE?: boolean;
+    ISBEMS?: string; // <-- IMPORTANT (if backend supports)
 }
+
 interface UserData {
     Email?: string;
     Phone?: string | number;
@@ -36,32 +38,111 @@ interface FocalFormProps {
     clearFormData?: () => void;
     setDirtyFlag?: (flag: boolean) => void;
     selectedOrgId: any;
-    selectedOrganizationId: any
+    selectedOrganizationId: any;
 }
 
-const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchFocal, cancelFocal, focalList = [], savedFormData, onFormChange, clearFormData, selectedOrgId, selectedOrganizationId, setDirtyFlag, userData = [] }) => {
+const FocalForm: React.FC<FocalFormProps> = memo(({
+    focalData,
+    saveFocal,
+    fetchFocal,
+    cancelFocal,
+    focalList = [],
+    savedFormData,
+    onFormChange,
+    clearFormData,
+    selectedOrgId,
+    selectedOrganizationId,
+    setDirtyFlag,
+    userData = []
+}) => {
 
     const dispatch = useDispatch();
     const debounceTimer = useRef<any>(null);
-    const initializedRef = useRef(false);
 
-    const [formData, setFormData] = useState(() => {
+    const [formData, setFormData] = useState({
+        id: 0,
+        name: "",
+        address: "",
+        phone: "",
+        email: "",
+        position: "",
+        title: "",
+        isActive: false,
+        isBemsRecord: false
+    });
+
+    const isBemsUser = formData.isBemsRecord;
+
+    // ✅ MAIN EFFECT (Handles Add / Edit / BEMS / Reset)
+    useEffect(() => {
+
         if (savedFormData) {
-            return savedFormData;
+            setFormData(savedFormData);
+            return;
         }
+
+        // CREATE NEW
+        if ((focalData as any)?.newFlag) {
+
+            // BEMS SEARCH RESULT
+            if (userData && userData.length > 0) {
+                const user = userData[0];
+
+                const updatedData = {
+                    id: user.Bemsid ?? 0,
+                    name: user.Name ?? "",
+                    address: "",
+                    phone: String(user.Phone ?? ""),
+                    email: user.Email ?? "",
+                    position: "",
+                    title: "",
+                    isActive: user.ActiveFlag === "Y",
+                    isBemsRecord: true
+                };
+
+                setFormData(updatedData);
+                onFormChange?.(updatedData);
+            } else {
+                // EMPTY NEW FORM
+                const emptyData = {
+                    id: 0,
+                    name: "",
+                    address: "",
+                    phone: "",
+                    email: "",
+                    position: "",
+                    title: "",
+                    isActive: false,
+                    isBemsRecord: false
+                };
+
+                setFormData(emptyData);
+                onFormChange?.(emptyData);
+            }
+            return;
+        }
+
+        // EDIT MODE
         if (focalData) {
-            return {
-                id: (focalData as any)?.newFlag ? 0 : (focalData.ID ?? 0),
+            const editData = {
+                id: focalData.ID ?? 0,
                 name: focalData.NAME ?? "",
                 address: focalData.ADDRESS ?? "",
                 phone: String(focalData.PHONE ?? ""),
                 email: focalData.EMAIL ?? "",
                 position: focalData.DEPARTMENT ?? "",
                 title: focalData.TITLE ?? "",
-                isActive: focalData.ISACTIVE ?? false
+                isActive: focalData.ISACTIVE ?? false,
+                isBemsRecord: focalData.ISBEMS === "Y"
             };
+
+            setFormData(editData);
+            onFormChange?.(editData);
+            return;
         }
-        return {
+
+        // FALLBACK RESET
+        setFormData({
             id: 0,
             name: "",
             address: "",
@@ -69,10 +150,13 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             email: "",
             position: "",
             title: "",
-            isActive: false
-        };
-    });
-    const isBemsUser = !!formData.id;
+            isActive: false,
+            isBemsRecord: false
+        });
+
+    }, [focalData, savedFormData, userData]);
+
+    // CLEANUP
     useEffect(() => {
         return () => {
             if (debounceTimer.current) clearTimeout(debounceTimer.current);
@@ -106,7 +190,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 email: "",
                 position: "",
                 title: "",
-                isActive: false
+                isActive: false,
+                isBemsRecord: false
             });
         } else {
             setFormData({
@@ -117,7 +202,8 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 email: focalData?.EMAIL ?? "",
                 position: focalData?.DEPARTMENT ?? "",
                 title: focalData?.TITLE ?? "",
-                isActive: focalData?.ISACTIVE ?? false
+                isActive: focalData?.ISACTIVE ?? false,
+                isBemsRecord: focalData?.ISBEMS === "Y"
             });
         }
 
@@ -128,66 +214,27 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
     const handleSave = async () => {
 
-        if (!formData.name || formData.name.trim() === "") {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Focal Name is required."
-            }));
+        if (!formData.name.trim()) {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Focal Name is required." }));
             return;
         }
+
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (formData.email && !emailRegex.test(formData.email)) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Invalid Email Address"
-            }));
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Invalid Email Address" }));
             return;
-        }
-        let isDuplicate = false;
-        if (formData.email && formData.email.trim() !== "") {
-            isDuplicate = focalList?.some(
-                (item: FocalData) =>
-                    item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
-                    item.ID !== formData.id
-            );
-        } else {
-            isDuplicate = focalList?.some(
-                (item: FocalData) =>
-                    item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
-                    item.ID !== formData.id
-            );
         }
 
-        if (isDuplicate) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: formData.email
-                    ? "Email must be unique."
-                    : "Focal Name must be unique."
-            }));
-            return;
-        }
         if (formData.phone && !/^\+?[0-9 ()-]+$/.test(formData.phone.trim())) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Invalid Phone Number"
-            }));
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Invalid Phone Number" }));
             return;
         }
 
-        const items: MasterDataItem[] = [];
-
-        items.push({
+        const items: MasterDataItem[] = [{
             Id: formData.id ?? 0,
             OperationType: (focalData as any)?.newFlag ? "add" : "update",
             Name: formData.name.trim(),
-            Description: "",
             IsActive: formData.isActive ? "Y" : "N",
-            Notes: "",
             Address: formData.address ?? "",
             Department: formData.position ?? "",
             Phone: formData.phone ?? "",
@@ -195,7 +242,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             Title: formData.title ?? "",
             orgTypeId: selectedOrgId ?? 0,
             orgId: selectedOrganizationId ?? 0,
-        });
+        }];
 
         const payload = {
             MasterDataType: "Focal Management",
@@ -203,57 +250,32 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         };
 
         try {
-            const response = await EasaListService.addMasterDataType(payload);
-            if (response?.data === -1) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: "error",
-                    snackbarMessage: "Error in saving the data."
-                }));
-                return;
-            }
+            await EasaListService.addMasterDataType(payload);
 
             dispatch(showSnackbar({
                 snackbarOpen: true,
                 snackbarType: "success",
                 snackbarMessage: "Focal saved successfully."
             }));
-            if (clearFormData) clearFormData();
+
+            clearFormData?.();
             setDirtyFlag?.(false);
+
             if (cancelFocal && focalData?.ID !== undefined) {
                 cancelFocal(focalData.ID);
             }
-            setTimeout(() => {
-                fetchFocal?.(selectedOrgId, selectedOrganizationId);
-            }, 0)
-        } catch (error) {
+
+            fetchFocal?.(selectedOrgId, selectedOrganizationId);
+
+        } catch {
             dispatch(showSnackbar({
                 snackbarOpen: true,
                 snackbarType: "error",
                 snackbarMessage: "Error saving Focal."
             }));
-            console.error("Error saving focal:", error);
         }
     };
-    useEffect(() => {
-        if ((focalData as any)?.newFlag && userData && userData?.length > 0) {
-            const user = userData[0];
 
-            const updatedData = {
-                id: user.Bemsid ?? 0,
-                name: user.Name ?? "",
-                address: "",
-                phone: String(user.Phone ?? ""),
-                email: user.Email ?? "",
-                position: "",
-                title: "",
-                isActive: user.ActiveFlag === "Y" ? true : false
-            };
-
-            setFormData(updatedData);
-            onFormChange?.(updatedData);
-        }
-    }, [userData, focalData]);
     return (
         <div style={{ padding: "10px" }}>
 
@@ -263,91 +285,46 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
 
             <div className="form-grid">
 
-                {/* LEFT SIDE */}
                 <div className="form-column">
-
                     <div className="form-row">
                         <label>Focal Name</label>
-                        <TextField
-                            name="name"
-                            value={formData.name}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                            disabled={isBemsUser}
-                        />
+                        <TextField name="name" value={formData.name} onChange={handleChange} size="small" fullWidth disabled={isBemsUser} />
                     </div>
 
                     <div className="form-row">
                         <label>Address</label>
-                        <TextField
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
+                        <TextField name="address" value={formData.address} onChange={handleChange} size="small" fullWidth />
                     </div>
 
                     <div className="form-row">
                         <label>Position</label>
-                        <TextField
-                            name="position"
-                            value={formData.position}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
+                        <TextField name="position" value={formData.position} onChange={handleChange} size="small" fullWidth />
                     </div>
-
                 </div>
 
-                {/* RIGHT SIDE */}
                 <div className="form-column">
-
                     <div className="form-row">
                         <label>Phone Number</label>
-                        <TextField
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                            disabled={isBemsUser}
-                        />
+                        <TextField name="phone" value={formData.phone} onChange={handleChange} size="small" fullWidth disabled={isBemsUser} />
                     </div>
 
                     <div className="form-row">
                         <label>Email</label>
-                        <TextField
-                            name="email"
-                            value={formData.email}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                            disabled={isBemsUser}
-                        />
+                        <TextField name="email" value={formData.email} onChange={handleChange} size="small" fullWidth disabled={isBemsUser} />
                     </div>
 
                     <div className="form-row">
                         <label>Title</label>
-                        <TextField
-                            name="title"
-                            value={formData.title}
-                            onChange={handleChange}
-                            size="small"
-                            fullWidth
-                        />
+                        <TextField name="title" value={formData.title} onChange={handleChange} size="small" fullWidth />
                     </div>
-
                 </div>
 
             </div>
 
             <div className="form-actions">
-                <Typography id="modal-modal-btn" className='buttonSection' sx={{ mt: 2 }} textAlign={'end'} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingBlock: '0px', paddingInline: '0px', marginTop: '10px' }}>
-                    <Button variant="outlined" size="small" onClick={handleCancel} className={"cancelButtonUserDefined"}>Cancel</Button>
-                    <Button variant="contained" size="small" onClick={handleSave} className="deleteButton">Save</Button>
+                <Typography sx={{ mt: 2 }} textAlign={'end'} style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                    <Button variant="outlined" size="small" onClick={handleCancel}>Cancel</Button>
+                    <Button variant="contained" size="small" onClick={handleSave}>Save</Button>
                 </Typography>
             </div>
 
