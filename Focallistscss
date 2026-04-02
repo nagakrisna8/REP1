@@ -1,9 +1,5 @@
-.focal-grid-compact.k-grid > .k-grid-aria-root .k-table-tbody > tr.k-master-row > td,
-.focal-grid-compact.k-grid > .k-grid-container .k-table-tbody > tr.k-master-row > td,
-.focal-grid-compact.k-grid > .k-grid-content .k-table-tbody > tr.k-master-row > td {
-  padding-inline: 22px !important;
-}
-
-.focal-grid-compact .k-grid-header th {
+#kgrid-oss-checklistType.focal-grid-compact.k-grid > .k-grid-aria-root .k-table-tbody > tr.k-master-row > td,
+#kgrid-oss-checklistType.focal-grid-compact.k-grid > .k-grid-container .k-table-tbody > tr.k-master-row > td,
+#kgrid-oss-checklistType.focal-grid-compact.k-grid > .k-grid-content .k-table-tbody > tr.k-master-row > td {
   padding-inline: 22px !important;
 }
