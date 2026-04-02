@@ -74,7 +74,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             isBemsRecord: false
         };
     });
-    const isBemsUser = !!formData.isBemsRecord;
+    const isBemsUser = formData.isBemsRecord || formData.id > 0;
     useEffect(() => {
         return () => {
             if (debounceTimer.current) clearTimeout(debounceTimer.current);
