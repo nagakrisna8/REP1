@@ -287,7 +287,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         if (!showSearchField) {
             return (
-                <td>
+                <td style={{paddingLeft:"22px !important"}}>
                     <span>{dataItem.NAME || ""}</span>
                 </td>
             );
@@ -495,12 +495,12 @@ const FocalTable: React.FC<any> = memo((props) => {
                     <GridColumn
                         title="Active"
                         cells={{ data: activeCheckbox }}
-                        width="90px"
+                        width="120px"
                     />
                     <GridColumn
                         title="Focals"
                         cells={{ data: ContactFocals }}
-                        width="90px"
+                        width="120px"
                     />
                 </AnyGrid>
             </Card>
