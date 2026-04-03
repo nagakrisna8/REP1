@@ -66,11 +66,12 @@ const TableMaintenance: React.FC = () => {
         supplierActivity: 'custom',
         focal: 'custom'
     });
-    const [selectedOrgId, setSelectedOrgId] = useState<number>(1);
+    const [selectedOrgId, setSelectedOrgId] = useState<number | "">("");
+    const [selectedOrganizationId, setSelectedOrganizationId] = useState<number | "">("");
     const [masterDataOptions, setMasterDataOptions] = useState<any[]>([]);
     const [selectedPage, setSelectedPage] = useState<TableMaintenancePage>("Organization Type");
     const [dirtyFlag, setDirtyFlag] = React.useState(false);
-    const [isItarAppFlag, setIsItarAppFlag] = React.useState(false);
+    const [isItarAppFlag, setIsItarAppFlag] = useState(false);
     const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
     const [originalSupplierCategoryData, setOriginalSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
     const [originalSupplierActivityData, setOriginalSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
@@ -86,8 +87,8 @@ const TableMaintenance: React.FC = () => {
             if (selectedPage === 'Supplier Activity Authorised') fetchSupplierActivity();
             else if (selectedPage === 'Supplier Category') fetchSupplierCategory();
             else if (selectedPage === 'Organization Type') fetchOrganizationType();
-            else if (selectedPage === 'Organization') fetchOrganization(selectedOrgId);
-            else if (selectedPage === 'Focal Management') fetchFocal(selectedOrgId, selectedOrganizationId,);
+            else if (selectedPage === 'Organization' && selectedOrgId !== "") fetchOrganization(selectedOrgId);
+            else if (selectedPage === 'Focal Management' && selectedOrgId !== "" && selectedOrganizationId !== "") fetchFocal(selectedOrgId, selectedOrganizationId);
         }
 
         setDirtyFlag(false);
@@ -103,13 +104,13 @@ const TableMaintenance: React.FC = () => {
     const [supplierCategoryData, setSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
     const [supplierCategoryDataState, setSupplierCategoryDataState] = useState<State>({});
     const [organizationDataState, setOrganizationDataState] = useState<State>({});
-    const [supplierActivityDataState, setSupplierActivityDataState] = React.useState<State>({});
+    const [supplierActivityDataState, setSupplierActivityDataState] = useState<State>({});
     const [errorCodeMasterActiveItem, setErrorCodeMasterActiveItem] = useState<SupplierActivityMasterTable | null>(null);
     const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
     const [focalActiveItem, setFocalActiveItem] = useState<FocalMasterTable | null>(null);
     const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
-    const [selectedOrganizationId, setSelectedOrganizationId] = useState<number>(1);
-    const [expandFocalId, setExpandFocalId] = useState<number |null>(null);
+    const [expandFocalId, setExpandFocalId] = useState<number | null>(null);
+
     // Organization Type handlers
     const CreateOrganizationType = () => {
         const newOrganizatonType: OrganizationTypeMasterTable = {
@@ -276,7 +277,7 @@ const TableMaintenance: React.FC = () => {
                 }));
 
                 setOrganizationTypeData([...result].reverse());
-                setOriginalOrganizationTypeData([...result].reverse()); // 🔥 store original copy
+                setOriginalOrganizationTypeData([...result].reverse());
             })
             .catch((err) => console.error(err));
     };
@@ -420,7 +421,7 @@ const TableMaintenance: React.FC = () => {
                     Phone: "",
                     Email: "",
                     Title: "",
-                    orgTypeId: selectedOrgId
+                    orgTypeId: selectedOrgId as number
                 });
             }
 
@@ -478,7 +479,9 @@ const TableMaintenance: React.FC = () => {
 
             setDirtyFlag(false);
 
-            fetchOrganization(selectedOrgId);
+            if (selectedOrgId !== "") {
+                fetchOrganization(selectedOrgId);
+            }
 
             dispatch(showSnackbar({
                 snackbarOpen: true,
@@ -513,7 +516,7 @@ const TableMaintenance: React.FC = () => {
             .catch((err) => console.error(err));
     };
     const onOrganizationDatastateChange = (event: GridDataStateChangeEvent) => {
-        let temp = {filter: event.dataState.filter, sort:event.dataState.sort, take:undefined, skip:0}
+        let temp = { filter: event.dataState.filter, sort: event.dataState.sort, take: undefined, skip: 0 }
         setOrganizationDataState(temp)
     };
     const OrganizationColumnPropsBuilder = (field) => {
@@ -1032,8 +1035,6 @@ const TableMaintenance: React.FC = () => {
             await EasaListService.addMasterDataType(payload);
 
             setDirtyFlag(false);
-            //fetchFocal();
-
             dispatch(showSnackbar({
                 snackbarOpen: true,
                 snackbarType: "success",
@@ -1047,36 +1048,36 @@ const TableMaintenance: React.FC = () => {
             }));
         }
     };
-   const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
-    setSelectedOrgId(orgTypeId);
-    setSelectedOrganizationId(orgId);
-    setSelectedPage("Focal Management");
-    setFocalData([]);
-    setOriginalFocalData([]);
-    setFocalDataState({})
+    const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
+        setSelectedOrgId(orgTypeId);
+        setSelectedOrganizationId(orgId);
+        setSelectedPage("Focal Management");
+        setFocalData([]);
+        setOriginalFocalData([]);
+        setFocalDataState({})
 
-    try {
-        const response = await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId);
+        try {
+            const response = await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId);
 
-        let result: FocalMasterTable[] = response?.data.map(x => ({
-            ID: x.ID,
-            NAME: x.NAME,
-            PHONE: x.PHONE,
-            ADDRESS: x.ADDRESS,
-            EMAIL: x.EMAIL,
-            DEPARTMENT: x.DEPARTMENT,
-            TITLE: x.TITLE,
-            ISACTIVE: x.ISACTIVE === "Y",
-        }));
+            let result: FocalMasterTable[] = response?.data.map(x => ({
+                ID: x.ID,
+                NAME: x.NAME,
+                PHONE: x.PHONE,
+                ADDRESS: x.ADDRESS,
+                EMAIL: x.EMAIL,
+                DEPARTMENT: x.DEPARTMENT,
+                TITLE: x.TITLE,
+                ISACTIVE: x.ISACTIVE === "Y",
+            }));
 
-        setFocalData([...result].reverse());
-        setOriginalFocalData([...result].reverse());
-        setShouldAutoCreateFocal(true);
+            setFocalData([...result].reverse());
+            setOriginalFocalData([...result].reverse());
+            setShouldAutoCreateFocal(true);
 
-    } catch (err) {
-        console.error(err);
-    }
-};
+        } catch (err) {
+            console.error(err);
+        }
+    };
     const fetchFocal = async (orgName: number, orgTypeId: number) => {
         let masterdataType = 4;
         EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
@@ -1190,27 +1191,56 @@ const TableMaintenance: React.FC = () => {
         const data = result?.data ?? [];
         setMasterDataOptions(data);
     };
-    const handleOrg = (event) => {
+    const handleOrg = async (event) => {
         const orgTypeId = event.target.value;
         setSelectedOrgId(orgTypeId);
-        fetchOrganization(orgTypeId);
+        setSelectedOrganizationId("");
+
+        try {
+            const response = await EasaListService.getAdminMasterDetailsOrgType(1, orgTypeId);
+
+            let result: OrganizationTableData[] = response?.data.map(org => ({
+                ORGANIZATIONID: org.ORGANIZATIONID,
+                ORGANIZATIONNAME: org.ORGANIZATIONNAME,
+                ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
+                NOTES: org.NOTES,
+                SORT_ORDER: org.SORT_ORDER,
+                ISACTIVE: org.ISACTIVE === "Y"
+            }));
+
+            const reversedResult = [...result].toReversed();
+
+            setOrganizationData(reversedResult);
+            setOriginalOrganizationData(reversedResult);
+
+            if (reversedResult.length > 0) {
+                setSelectedOrganizationId(reversedResult[0].ORGANIZATIONID);
+            } else {
+                setSelectedOrganizationId("");
+                setFocalData([]);
+                setOriginalFocalData([]);
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
+
     const handleOrganization = (event) => {
         const orgId = event.target.value;
         setSelectedOrganizationId(orgId);
-        fetchFocal(selectedOrgId, orgId)
+        fetchFocal(selectedOrgId as number, orgId)
     }
     useEffect(() => {
-        if (selectedOrgId) {
+        if (selectedOrgId !== "") {
             fetchOrganization(selectedOrgId);
         }
     }, [selectedOrgId])
     useEffect(() => {
-    if (shouldAutoCreateFocal && focalData.length > 0) {
-        CreateFocal();
-        setShouldAutoCreateFocal(false);
-    }
-}, [focalData, shouldAutoCreateFocal]);
+        if (shouldAutoCreateFocal) {
+            CreateFocal();
+            setShouldAutoCreateFocal(false);
+        }
+    }, [focalData, shouldAutoCreateFocal]);
     useEffect(() => {
         var storageService = new StorageService();
         let isItarApp = storageService.getIsItarApp();
@@ -1218,16 +1248,24 @@ const TableMaintenance: React.FC = () => {
         fetchOrganizationType();
         fetchSupplierCategory();
         fetchSupplierActivity();
-        fetchFocal(selectedOrgId, selectedOrganizationId);
     }, []);
 
-
-    React.useEffect(() => {
-        const reversed = [...organizationTypeData].reverse();
-        if (!selectedOrgId && reversed.length > 0) {
-            setSelectedOrgId(reversed[0].ORGANIZATIONTYPEID as any);
+    useEffect(() => {
+        if (organizationTypeData.length > 0 && selectedOrgId === "") {
+            setSelectedOrgId(organizationTypeData[organizationTypeData?.length - 1]?.ORGANIZATIONTYPEID);
         }
     }, [organizationTypeData, selectedOrgId]);
+    useEffect(() => {
+        if (organizationData.length > 0 && selectedOrganizationId === "") {
+            setSelectedOrganizationId(organizationData[0].ORGANIZATIONID);
+        }
+    }, [organizationData, selectedOrganizationId]);
+    useEffect(() => {
+        if (selectedOrgId !== "" && selectedOrganizationId !== "") {
+            fetchFocal(selectedOrgId, selectedOrganizationId);
+        }
+    }, [selectedOrgId, selectedOrganizationId]);
+
     useEffect(() => {
         const storageService = new StorageService();
         storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, dirtyFlag);
@@ -1257,7 +1295,12 @@ const TableMaintenance: React.FC = () => {
                 {(selectedPage === "Organization" || selectedPage === "Focal Management") && (
                     <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
                         Organization Type
-                        <Select id="admin-table-page-selector" style={{ maxWidth: 280, minWidth: 250 }} value={selectedOrgId} onChange={handleOrg} size="medium"
+                        <Select
+                            id="admin-table-page-selector"
+                            style={{ maxWidth: 280, minWidth: 250 }}
+                            value={selectedOrgId}
+                            onChange={handleOrg}
+                            size="medium"
                             MenuProps={{
                                 PaperProps: {
                                     sx: {
@@ -1266,16 +1309,16 @@ const TableMaintenance: React.FC = () => {
                                     }
                                 }
                             }}
-                        >{(organizationTypeData
-                        ).map(item => (
-                            <MenuItem
-                                key={item.ORGANIZATIONTYPEID}
-                                value={item.ORGANIZATIONTYPEID}
-                                className="text-normal"
-                            >
-                                {item.ORGANIZATIONTYPE}
-                            </MenuItem>
-                        ))}
+                        >
+                            {(organizationTypeData.reverse()).map(item => (
+                                <MenuItem
+                                    key={item.ORGANIZATIONTYPEID}
+                                    value={item.ORGANIZATIONTYPEID}
+                                    className="text-normal"
+                                >
+                                    {item.ORGANIZATIONTYPE}
+                                </MenuItem>
+                            ))}
                         </Select>
                     </div>
                 )}
@@ -1299,23 +1342,21 @@ const TableMaintenance: React.FC = () => {
                                 }
                             }}
                         >
-                            {[...organizationData]
-                                .reverse()
-                                .map(item => (
-                                    <MenuItem
-                                        key={item.ORGANIZATIONID}
-                                        value={item.ORGANIZATIONID}
-                                        sx={{
-                                            maxWidth: 250,
-                                            whiteSpace: "nowrap",
-                                            overflow: "hidden",
-                                            textOverflow: "ellipsis",
-                                            display: "block"
-                                        }}
-                                    >
-                                        {item.ORGANIZATIONNAME}
-                                    </MenuItem>
-                                ))}
+                            {organizationData.map(item => (
+                                <MenuItem
+                                    key={item.ORGANIZATIONID}
+                                    value={item.ORGANIZATIONID}
+                                    sx={{
+                                        maxWidth: 250,
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                        display: "block"
+                                    }}
+                                >
+                                    {item.ORGANIZATIONNAME}
+                                </MenuItem>
+                            ))}
                         </Select>
                     </div>
                 )}
@@ -1357,7 +1398,7 @@ const TableMaintenance: React.FC = () => {
                             saveOrganization={saveOrganization}
                             dragStart={organizationDragStart}
                             reorder={organizationMasteReorder}
-                            selectedOrgId={selectedOrgId}
+                            selectedOrgId={selectedOrgId as number}
                             sortBy={sortBy.supplierActivity}
                             handleSortByChange={handleSortByChange}
                         />
@@ -1411,8 +1452,8 @@ const TableMaintenance: React.FC = () => {
                         itemChange={focalItemChange}
                         createFocal={CreateFocal}
                         saveFocal={onSaveFocal}
-                        selectedOrgId={selectedOrgId}
-                        selectedOrganizationId={selectedOrganizationId}
+                        selectedOrgId={selectedOrgId as number}
+                        selectedOrganizationId={selectedOrganizationId as number}
                         fetchFocal={fetchFocal}
                         dragStart={focalMasterTableDragStart}
                         reorder={focalMastereorder}
@@ -1421,13 +1462,9 @@ const TableMaintenance: React.FC = () => {
                         setDirtyFlag={setDirtyFlag}
                     />
                 )}
-
-
             </div>
         </div>
     );
 };
 
 export default TableMaintenance;
-
-
