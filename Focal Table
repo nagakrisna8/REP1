@@ -84,13 +84,19 @@ const FocalTable: React.FC<any> = memo((props) => {
     const formDataMapRef = useRef<{ [id: number]: any }>({});
     const BemsSearchInput = React.memo(({ initialValue = "", onSearch }: BemsSearchInputProps) => {
         const [localValue, setLocalValue] = useState(initialValue);
+        const handleChange = (e) => {
+            const value = e.target.value;
+            if (/^\d*$/.test(value)) {
+                setLocalValue(value);
+            }
+        }
         return (
             <div style={{ width: "100%" }}>
                 <TextField
                     variant="standard"
                     value={localValue}
                     style={{ width: "100%" }}
-                    onChange={(e) => setLocalValue(e.target.value)}
+                    onChange={handleChange}
                     onKeyDown={(e) => {
                         if (e.key === "Enter") {
                             onSearch(localValue);
@@ -100,6 +106,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                     autoComplete="off"
                     className="kgrid-oss-csr-lookup-popup-input"
                     inputProps={{
+                        maxLength: 20,
                         style: {
                             fontSize: 14,
                             color: "#253746",
@@ -287,7 +294,7 @@ const FocalTable: React.FC<any> = memo((props) => {
 
         if (!showSearchField) {
             return (
-                <td style={{paddingLeft:"22px !important"}}>
+                <td style={{ paddingLeft: "22px !important" }}>
                     <span>{dataItem.NAME || ""}</span>
                 </td>
             );
@@ -331,6 +338,7 @@ const FocalTable: React.FC<any> = memo((props) => {
                         type="checkbox"
                         checked={!!dataItem.ISACTIVE}
                         onChange={handleChange}
+                        disabled={true}
                     />
                 </div>
             </td>
@@ -382,13 +390,13 @@ const FocalTable: React.FC<any> = memo((props) => {
     }, [props.selectedOrgId, props.selectedOrganizationId]);
 
     return (
-        <div style={{ height: "calc(100vh - 240px)" }}>
+        <div style={{ height: "calc(100vh - 210px)" }}>
             <Card
                 style={{
                     borderLeft: "4px solid #0033A1",
                     marginLeft: "22px",
                     overflow: "hidden",
-                    maxHeight: "calc(100vh - 240px)",
+                    maxHeight: "calc(100vh - 210px)",
                 }}
             >
                 <AnyGrid
