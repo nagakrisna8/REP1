@@ -6,7 +6,6 @@ import "./FocalForm.scss";
 import { MasterDataItem } from "../AdminModal";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 import StorageService from "../../../../../../utils/StorageService";
-import EnvDetail from "../../../../../../utils/EnvDetail";
 
 interface FocalData {
     ID?: number;
@@ -96,14 +95,17 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         }, 400);
     };
 
-    const handleCancel = async () => {
+  const handleCancel = async () => {
     const storageService = new StorageService();
-    const isDirty = storageService.getApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        `IsTabDirty`
-    );
+    const hasChanges =
+        formData.name?.trim() ||
+        formData.address?.trim() ||
+        formData.phone?.trim() ||
+        formData.email?.trim() ||
+        formData.position?.trim() ||
+        formData.title?.trim();
 
-    if (isDirty) {
+    if (hasChanges) {
         const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
         if (!dirtyResponse) return;
     }
@@ -143,7 +145,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
         cancelFocal(focalData.ID);
     }
 };
-
     const handleSave = async () => {
         if (!formData.name || formData.name.trim() === "") {
             dispatch(showSnackbar({
@@ -266,43 +267,39 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
-    useEffect(() => {
-        if ((focalData as any)?.newFlag) {
-            if (userData && userData?.length > 0) {
-                const user = userData[0];
+ useEffect(() => {
+    if ((focalData as any)?.newFlag) {
+        if (userData && userData?.length > 0) {
+            const user = userData[0];
 
-                const updatedData = {
-                    id: user.Bemsid ?? 0,
-                    name: user.Name ?? "",
-                    address: "",
-                    phone: String(user.Phone ?? ""),
-                    email: user.Email ?? "",
-                    position: "",
-                    title: "",
-                    isActive: user.ActiveFlag === "Y" ? true : false,
-                    isBemsRecord: true
-                };
-
-                setFormData(updatedData);
-                onFormChange?.(updatedData);
-            } else {
-                const emptyData = {
-                    id: 0,
-                    name: "",
-                    address: "",
-                    phone: "",
-                    email: "",
-                    position: "",
-                    title: "",
-                    isActive: true,
-                    isBemsRecord: false
-                };
-
-                setFormData(emptyData);
-                onFormChange?.(emptyData);
-            }
+            const updatedData = {
+                id: user.Bemsid ?? 0,
+                name: user.Name ?? "",
+                address: "",
+                phone: String(user.Phone ?? ""),
+                email: user.Email ?? "",
+                position: "",
+                title: "",
+                isActive: user.ActiveFlag === "Y" ? true : false,
+                isBemsRecord: true
+            };
+            setFormData(updatedData);
+        } else {
+            const emptyData = {
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: true,
+                isBemsRecord: false
+            };
+            setFormData(emptyData);
         }
-    }, [userData, focalData]);
+    }
+}, [userData, focalData]);
     console.log(formData, 'formData');
     return (
         <div style={{ padding: "15px" }}>
