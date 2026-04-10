@@ -5,6 +5,7 @@ import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
 import { MasterDataItem } from "../AdminModal";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
+import StorageService from "../../../../../../utils/StorageService";
 
 interface FocalData {
     ID?: number;
@@ -87,15 +88,20 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             [e.target.name]: e.target.value
         };
         setFormData(updated);
-
+        setDirtyFlag?.(true);
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             onFormChange?.(updated);
         }, 400);
     };
 
-    const handleCancel = () => {
+    const handleCancel = async () => {
+        const storageService = new StorageService();
+        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
+        if (!dirtyResponse) return;
+
         clearFormData?.();
+        setDirtyFlag?.(false);
 
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
@@ -124,22 +130,20 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                 isBemsRecord: formData.isBemsRecord ?? false
             });
         }
-
         if (cancelFocal && focalData?.ID !== undefined) {
             cancelFocal(focalData.ID);
         }
     };
 
     const handleSave = async () => {
-        
-        // if (!formData.name || formData.name.trim() === "") {
-        //     dispatch(showSnackbar({
-        //         snackbarOpen: true,
-        //         snackbarType: "error",
-        //         snackbarMessage: "Focal Name is required."
-        //     }));
-        //     return;
-        // }
+        if (!formData.name || formData.name.trim() === "") {
+            dispatch(showSnackbar({
+                snackbarOpen: true,
+                snackbarType: "error",
+                snackbarMessage: "Focal Name is required."
+            }));
+            return;
+        }
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!formData.email || formData.email.trim() === "") {
             dispatch(showSnackbar({
@@ -342,6 +346,24 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                             fullWidth
                             inputProps={{
                                 maxLength: 60,
+                            }}
+                        />
+                    </div>
+                    <div className="form-row">
+                        <label>Active</label>
+                        <input
+                            type="checkbox"
+                            name="isActive"
+                            checked={!!formData.isActive}
+                            onChange={(e) => {
+                                const updated = {
+                                    ...formData,
+                                    isActive: e.target.checked
+                                };
+                                setFormData(updated);
+                                setDirtyFlag?.(true);
+
+                                onFormChange?.(updated);
                             }}
                         />
                     </div>
