@@ -5,7 +5,6 @@ import EasaListService from "../../EasaRegisterListService";
 import "./FocalForm.scss";
 import { MasterDataItem } from "../AdminModal";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
-import StorageService from "../../../../../../utils/StorageService";
 
 interface FocalData {
     ID?: number;
@@ -88,72 +87,50 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             [e.target.name]: e.target.value
         };
         setFormData(updated);
-        setDirtyFlag?.(true);
+
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             onFormChange?.(updated);
         }, 400);
     };
 
-  const handleCancel = async () => {
-    const storageService = new StorageService();
-    const hasChanges =
-        formData.name?.trim() ||
-        formData.address?.trim() ||
-        formData.phone?.trim() ||
-        formData.email?.trim() ||
-        formData.position?.trim() ||
-        formData.title?.trim();
+    const handleCancel = () => {
+        clearFormData?.();
 
-    if (hasChanges) {
-        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
-        if (!dirtyResponse) return;
-    }
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-    clearFormData?.();
-    setDirtyFlag?.(false);
-
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-
-    if ((focalData as any)?.newFlag) {
-        setFormData({
-            id: 0,
-            name: "",
-            address: "",
-            phone: "",
-            email: "",
-            position: "",
-            title: "",
-            isActive: false,
-            isBemsRecord: false
-        });
-    } else {
-        setFormData({
-            id: focalData?.ID ?? 0,
-            name: focalData?.NAME ?? "",
-            address: focalData?.ADDRESS ?? "",
-            phone: String(focalData?.PHONE ?? ""),
-            email: focalData?.EMAIL ?? "",
-            position: focalData?.DEPARTMENT ?? "",
-            title: focalData?.TITLE ?? "",
-            isActive: focalData?.ISACTIVE ?? false,
-            isBemsRecord: formData.isBemsRecord ?? false
-        });
-    }
-
-    if (cancelFocal && focalData?.ID !== undefined) {
-        cancelFocal(focalData.ID);
-    }
-};
-    const handleSave = async () => {
-        if (!formData.name || formData.name.trim() === "") {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "error",
-                snackbarMessage: "Focal Name is required."
-            }));
-            return;
+        if ((focalData as any)?.newFlag) {
+            setFormData({
+                id: 0,
+                name: "",
+                address: "",
+                phone: "",
+                email: "",
+                position: "",
+                title: "",
+                isActive: false,
+                isBemsRecord: false
+            });
+        } else {
+            setFormData({
+                id: focalData?.ID ?? 0,
+                name: focalData?.NAME ?? "",
+                address: focalData?.ADDRESS ?? "",
+                phone: String(focalData?.PHONE ?? ""),
+                email: focalData?.EMAIL ?? "",
+                position: focalData?.DEPARTMENT ?? "",
+                title: focalData?.TITLE ?? "",
+                isActive: focalData?.ISACTIVE ?? false,
+                isBemsRecord: formData.isBemsRecord ?? false
+            });
         }
+
+        if (cancelFocal && focalData?.ID !== undefined) {
+            cancelFocal(focalData.ID);
+        }
+    };
+
+    const handleSave = async () => {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!formData.email || formData.email.trim() === "") {
             dispatch(showSnackbar({
@@ -267,39 +244,43 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             console.error("Error saving focal:", error);
         }
     };
- useEffect(() => {
-    if ((focalData as any)?.newFlag) {
-        if (userData && userData?.length > 0) {
-            const user = userData[0];
+    useEffect(() => {
+        if ((focalData as any)?.newFlag) {
+            if (userData && userData?.length > 0) {
+                const user = userData[0];
 
-            const updatedData = {
-                id: user.Bemsid ?? 0,
-                name: user.Name ?? "",
-                address: "",
-                phone: String(user.Phone ?? ""),
-                email: user.Email ?? "",
-                position: "",
-                title: "",
-                isActive: user.ActiveFlag === "Y" ? true : false,
-                isBemsRecord: true
-            };
-            setFormData(updatedData);
-        } else {
-            const emptyData = {
-                id: 0,
-                name: "",
-                address: "",
-                phone: "",
-                email: "",
-                position: "",
-                title: "",
-                isActive: true,
-                isBemsRecord: false
-            };
-            setFormData(emptyData);
+                const updatedData = {
+                    id: user.Bemsid ?? 0,
+                    name: user.Name ?? "",
+                    address: "",
+                    phone: String(user.Phone ?? ""),
+                    email: user.Email ?? "",
+                    position: "",
+                    title: "",
+                    isActive: user.ActiveFlag === "Y" ? true : false,
+                    isBemsRecord: true
+                };
+
+                setFormData(updatedData);
+                onFormChange?.(updatedData);
+            } else {
+                const emptyData = {
+                    id: 0,
+                    name: "",
+                    address: "",
+                    phone: "",
+                    email: "",
+                    position: "",
+                    title: "",
+                    isActive: true,
+                    isBemsRecord: false
+                };
+
+                setFormData(emptyData);
+                onFormChange?.(emptyData);
+            }
         }
-    }
-}, [userData, focalData]);
+    }, [userData, focalData]);
     console.log(formData, 'formData');
     return (
         <div style={{ padding: "15px" }}>
@@ -352,24 +333,6 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
                             fullWidth
                             inputProps={{
                                 maxLength: 60,
-                            }}
-                        />
-                    </div>
-                    <div className="form-row">
-                        <label>Active</label>
-                        <input
-                            type="checkbox"
-                            name="isActive"
-                            checked={!!formData.isActive}
-                            onChange={(e) => {
-                                const updated = {
-                                    ...formData,
-                                    isActive: e.target.checked
-                                };
-                                setFormData(updated);
-                                setDirtyFlag?.(true);
-
-                                onFormChange?.(updated);
                             }}
                         />
                     </div>
