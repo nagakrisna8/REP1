@@ -131,7 +131,7 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
     };
 
     const handleSave = async () => {
-
+        
         // if (!formData.name || formData.name.trim() === "") {
         //     dispatch(showSnackbar({
         //         snackbarOpen: true,
@@ -158,18 +158,24 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
             return;
         }
         let isDuplicate = false;
+        const isNewRecord = (focalData as any)?.newFlag;
         if (formData.email && formData.email.trim() !== "") {
-            isDuplicate = focalList?.some(
-                (item: FocalData) =>
-                    item.EMAIL?.trim().toLowerCase() === formData.email.trim().toLowerCase() &&
-                    item.ID !== formData.id
-            );
+            isDuplicate = focalList?.some((item: FocalData) => {
+                const sameEmail =
+                    (item.EMAIL ?? "").trim().toLowerCase() === formData.email.trim().toLowerCase();
+                return isNewRecord
+                    ? sameEmail
+                    : sameEmail && item.ID !== formData.id;
+            });
         } else {
-            isDuplicate = focalList?.some(
-                (item: FocalData) =>
-                    item.NAME?.trim().toLowerCase() === formData.name.trim().toLowerCase() &&
-                    item.ID !== formData.id
-            );
+            isDuplicate = focalList?.some((item: FocalData) => {
+                const sameName =
+                    (item.NAME ?? "").trim().toLowerCase() === formData.name.trim().toLowerCase();
+
+                return isNewRecord
+                    ? sameName
+                    : sameName && item.ID !== formData.id;
+            });
         }
 
         if (isDuplicate) {
