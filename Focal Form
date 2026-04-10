@@ -6,6 +6,7 @@ import "./FocalForm.scss";
 import { MasterDataItem } from "../AdminModal";
 import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
 import StorageService from "../../../../../../utils/StorageService";
+import EnvDetail from "../../../../../../utils/EnvDetail";
 
 interface FocalData {
     ID?: number;
@@ -96,44 +97,52 @@ const FocalForm: React.FC<FocalFormProps> = memo(({ focalData, saveFocal, fetchF
     };
 
     const handleCancel = async () => {
-        const storageService = new StorageService();
+    const storageService = new StorageService();
+    const isDirty = storageService.getApplicationDataByKey(
+        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+        `IsTabDirty`
+    );
+
+    if (isDirty) {
         const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
         if (!dirtyResponse) return;
+    }
 
-        clearFormData?.();
-        setDirtyFlag?.(false);
+    clearFormData?.();
+    setDirtyFlag?.(false);
 
-        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
 
-        if ((focalData as any)?.newFlag) {
-            setFormData({
-                id: 0,
-                name: "",
-                address: "",
-                phone: "",
-                email: "",
-                position: "",
-                title: "",
-                isActive: false,
-                isBemsRecord: false
-            });
-        } else {
-            setFormData({
-                id: focalData?.ID ?? 0,
-                name: focalData?.NAME ?? "",
-                address: focalData?.ADDRESS ?? "",
-                phone: String(focalData?.PHONE ?? ""),
-                email: focalData?.EMAIL ?? "",
-                position: focalData?.DEPARTMENT ?? "",
-                title: focalData?.TITLE ?? "",
-                isActive: focalData?.ISACTIVE ?? false,
-                isBemsRecord: formData.isBemsRecord ?? false
-            });
-        }
-        if (cancelFocal && focalData?.ID !== undefined) {
-            cancelFocal(focalData.ID);
-        }
-    };
+    if ((focalData as any)?.newFlag) {
+        setFormData({
+            id: 0,
+            name: "",
+            address: "",
+            phone: "",
+            email: "",
+            position: "",
+            title: "",
+            isActive: false,
+            isBemsRecord: false
+        });
+    } else {
+        setFormData({
+            id: focalData?.ID ?? 0,
+            name: focalData?.NAME ?? "",
+            address: focalData?.ADDRESS ?? "",
+            phone: String(focalData?.PHONE ?? ""),
+            email: focalData?.EMAIL ?? "",
+            position: focalData?.DEPARTMENT ?? "",
+            title: focalData?.TITLE ?? "",
+            isActive: focalData?.ISACTIVE ?? false,
+            isBemsRecord: formData.isBemsRecord ?? false
+        });
+    }
+
+    if (cancelFocal && focalData?.ID !== undefined) {
+        cancelFocal(focalData.ID);
+    }
+};
 
     const handleSave = async () => {
         if (!formData.name || formData.name.trim() === "") {
