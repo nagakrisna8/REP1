@@ -1,1471 +1,1565 @@
-import "./AdminTable.scss";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-    MenuItem, Select,
-    SelectChangeEvent
+  Box,
+  Typography,
+  Modal,
+  Button,
+  TextField,
+  InputAdornment,
+  Badge,
+  Tooltip,
+  IconButton,
+  OutlinedInput,
+  ListItemText
 } from "@mui/material";
-import React, { useEffect, useState } from "react";
 import {
-    OrganizationTypeMasterTable,
-    SupplierActivityMasterTable, GetAdminSortByResponse,
-    SortByData,
-    SupplierCategoryMasterTable, OrganizationTableData,
-    MasterDataItem,
-    FocalMasterTable,
-    AdminTableEnum
-} from "./AdminModal";
-
-import EasaListService from "../EasaRegisterListService";
-import { useDispatch } from "react-redux";
-import { State, getter } from "@progress/kendo-data-query";
-import {
-    GridColumnMenuFilter, GridColumnMenuSort,
-    GridDataStateChangeEvent, GridItemChangeEvent,
-    isColumnMenuFilterActive,
-    isColumnMenuSortActive
+  Grid,
+  GridColumn,
+  GridColumnMenuFilter,
+  GridColumnMenuSort,
+  GridDataStateChangeEvent,
+  GridItemChangeEvent,
+  getSelectedState,
+  isColumnMenuSortActive,
+  isColumnMenuFilterActive
 } from "@progress/kendo-react-grid";
-import * as _ from "lodash";
-import EnvDetail from "../../../../../utils/EnvDetail";
-import { showSnackbar } from "../../../../core/snackbar/CustomSnackBarSlice";
-import StorageService from "../../../../../utils/StorageService";
-import OrganizationTypeTable from "./OrganizationType/OrganizationTypeTable";
-import SupplierActivityTable from "./SupplierActivity/SupplierActivityTable";
-import SupplierCategoryTable from "./SupplierCategory/SupplierCategoryTable";
-import OrganizationTable from "./Organization/OrganizationTable.Component";
-import FocalTable from "./Focal/FocalTable";
-
-// constants
-
-const ORGANIZATION_TYPE_DATA_ITEM_KEY: string = "ORGANIZATIONTYPEID";
-const SUPPLIER_ACTIVITY_DATA_ITEM_KEY: string = "ACTIVITYID";
-const ORGANIZATION_DATA_ITEM_KEY = "ORGANIZATIONID";
-const FOCAL_DATA_ITEM_KEY = "ID";
-const SUPPLIER_CATEGORY_DATA_ITEM_KEY: string = "CATEGORYID";
-// kendo grid utilities
-const ColumnMenuBuilder = (props) => {
-    return (
-        <div>
-            <GridColumnMenuSort {...props} />
-            <GridColumnMenuFilter {...props} expanded={true} />
-        </div>
-    );
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import { getter, labels } from "@progress/kendo-react-common";
+import CloseIcon from "@mui/icons-material/Close";
+import TableViewOutlinedIcon from "@mui/icons-material/TableViewOutlined";
+const DATA_ITEM_KEY = "COLUMNINDEX";
+const SELECTED_FIELD = "";
+const idGetter = getter(DATA_ITEM_KEY);
+import FormControl from "@mui/material/FormControl";
+import "./SupportingInsertPopupData.scss";
+import MenuItem from "@mui/material/MenuItem";
+import Select from "@mui/material/Select";
+import SuppInsertPopupDataService from "./SuppInsertPopupDataService";
+import { InsertSupportingDetails, SupportingDetails, OperationType, EspecDocAttachement, FilterParam, ParameterObject, RefDataSource, ConfigRefDocDetails, ConfigRefDtl, RefDocGridDetails, DocAttachmentDetails, ReferenceDataSourceName, GetRegulationPurposeData, GetStatus } from "../../../../../../model/Model";
+import { State, process } from "@progress/kendo-data-query";
+import { DatePicker } from '@progress/kendo-react-dateinputs';
+import { TextArea, TextBox } from "@progress/kendo-react-inputs";
+import { useDispatch } from 'react-redux';
+import { showSnackbar } from "../../../../../core/snackbar/CustomSnackBarSlice";
+import ReactSanitizedHtml from 'react-sanitized-html';
+import UserToken from "../../../../../../utils/UserToken";
+import ReferenceDataGridService from "../../configure-references/references-data-grid/ReferenceDataGridService";
+import { useParams } from "react-router-dom";
+import { userDefinedConfirm } from "../../../../../../utils/ConfirmDialog";
+import CommonFunction from "../../../../../../utils/CommonFunction";
+import { filterIcon } from "@progress/kendo-svg-icons";
+import ManageReferenceDataService from "../../configure-references/references-data-grid/manage-reference-data/ManageReferenceDataService";
+const AnyGrid = Grid as any;
+var InsertSupportingDetailData: InsertSupportingDetails[] = [];
+var InsertSupCheckItems: SupportingDetails[] = [];
+var InsertRefCheckItems: ConfigRefDocDetails[] = [];
+var InsertSupportingCheckedDetail: InsertSupportingDetails[] = [];
+const ColumnMenu = props => {
+  return <div>
+    <GridColumnMenuSort {...props} />
+    <GridColumnMenuFilter {...props} expanded={true} />
+  </div>;
 };
+const commonFunction = new CommonFunction();
 
-interface MasterDataPayload {
-    MasterDataType: string;
-    Items: MasterDataItem[]
-}
-const isColumnActive = (field, dataState) => {
-    return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
-};
-type TableMaintenancePage = AdminTableEnum.ORGANIZATIONTYPE | AdminTableEnum.ORGANIZATION | AdminTableEnum.SUPPLIERCATEGORY | AdminTableEnum.SUPPLIERACTIVITY | AdminTableEnum.FOCALMANAGEMENT;
-const TableMaintenance: React.FC = () => {
-    const dispatch = useDispatch();
-    const [sortBy, setSortBy] = useState<SortByData>({
-        organization: AdminTableEnum.CUSTOM,
-        organizationType: AdminTableEnum.CUSTOM,
-        supplierCategory: AdminTableEnum.CUSTOM,
-        supplierActivity: AdminTableEnum.CUSTOM,
-        focal: AdminTableEnum.CUSTOM
+const customTextArea = (props) => {
+  const { dataItem, field, onChange } = props;
+  const [value, setValue] = useState(dataItem[field]);
+
+  const handlecustomTextAreaChange = (event) => {
+    const newValue = event.target.value;
+    setValue(newValue);
+    onChange({
+      dataItem,
+      field,
+      syntheticEvent: event,
+      value: newValue
     });
-    const [selectedOrgId, setSelectedOrgId] = useState<number | "">("");
-    const [selectedOrganizationId, setSelectedOrganizationId] = useState<number | "">("");
-    const [masterDataOptions, setMasterDataOptions] = useState<any[]>([]);
-    const [selectedPage, setSelectedPage] = useState<TableMaintenancePage>(AdminTableEnum.ORGANIZATIONTYPE);
-    const [dirtyFlag, setDirtyFlag] = React.useState(false);
-    const [isItarAppFlag, setIsItarAppFlag] = useState(false);
-    const [originalOrganizationTypeData, setOriginalOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
-    const [originalSupplierCategoryData, setOriginalSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
-    const [originalSupplierActivityData, setOriginalSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
-    const [originalFocalData, setOriginalFocalData] = useState<FocalMasterTable[]>([]);
-    const [originalOrganizationData, setOriginalOrganizationData] = useState<OrganizationTableData[]>([]);
-    const [shouldAutoCreateFocal, setShouldAutoCreateFocal] = useState(false);
-    const handlePageChange = async (event: SelectChangeEvent<TableMaintenancePage>): Promise<void> => {
-        var storageService = new StorageService();
-        const dirtyResponse = await storageService.getUserConfirmationWithDirtyScreenCheck();
-        if (!dirtyResponse) return;
+  };
 
-        if (dirtyFlag) {
-            if (selectedPage === AdminTableEnum.SUPPLIERACTIVITY) fetchSupplierActivity();
-            else if (selectedPage === AdminTableEnum.SUPPLIERCATEGORY ) fetchSupplierCategory();
-            else if (selectedPage === AdminTableEnum.ORGANIZATIONTYPE) fetchOrganizationType();
-            else if (selectedPage === AdminTableEnum.ORGANIZATION && selectedOrgId !== "") fetchOrganization(selectedOrgId);
-            else if (selectedPage === AdminTableEnum.FOCALMANAGEMENT && selectedOrgId !== "" && selectedOrganizationId !== "") fetchFocal(selectedOrgId, selectedOrganizationId);
-        }
+  return (
+    <td>
+      <TextArea value={value} style={{ borderRadius: "4px", border: "1px solid rgba(0, 0, 0, 0.23)" }} onChange={handlecustomTextAreaChange} rows={3} title={value} autoSize={true} />
+    </td>
+  );
+};
 
-        setDirtyFlag(false);
-        setSelectedPage(event.target.value as TableMaintenancePage);
-    };
-    const [organizationTypeData, setOrganizationTypeData] = useState<OrganizationTypeMasterTable[]>([]);
-    const [organizationTypeDataState, setOrganizationTypeDataState] = React.useState<State>({});
-    const [checklistTypeActiveItem, setChecklistTypeActiveItem] = useState<OrganizationTypeMasterTable | null>(null);
-    const [organizationData, setOrganizationData] = useState<OrganizationTableData[]>([]);
-    const [supplierActivityData, setSupplierActivityData] = useState<SupplierActivityMasterTable[]>([]);
-    const [focalData, setFocalData] = useState<FocalMasterTable[]>([]);
-    const [focalDataState, setFocalDataState] = React.useState<State>({});
-    const [supplierCategoryData, setSupplierCategoryData] = useState<SupplierCategoryMasterTable[]>([]);
-    const [supplierCategoryDataState, setSupplierCategoryDataState] = useState<State>({});
-    const [organizationDataState, setOrganizationDataState] = useState<State>({});
-    const [supplierActivityDataState, setSupplierActivityDataState] = useState<State>({});
-    const [errorCodeMasterActiveItem, setErrorCodeMasterActiveItem] = useState<SupplierActivityMasterTable | null>(null);
-    const [supplierCategoryActiveItem, setSupplierCategoryActiveItem] = useState<SupplierCategoryMasterTable | null>(null);
-    const [focalActiveItem, setFocalActiveItem] = useState<FocalMasterTable | null>(null);
-    const [organizationActiveItem, setOrganizationActiveItem] = useState<OrganizationTableData | null>(null);
-    const [expandFocalId, setExpandFocalId] = useState<number | null>(null);
+const CustomInputText = (props) => {
+  const { dataItem, field, onChange } = props;
+  const [value, setValue] = useState(dataItem[field]);
 
-    // Organization Type handlers
-    const CreateOrganizationType = () => {
-        const newOrganizatonType: OrganizationTypeMasterTable = {
-            ORGANIZATIONTYPEID: new Date().getTime(),
-            ORGANIZATIONTYPE: "",
-            newFlag: true,
-            SORT_ORDER: organizationTypeData.length + 1,
-            ISACTIVE: true
-        };
+  useEffect(() => {
+    // to remove html while loading data
+    setValue(commonFunction.removeHTMLTags(dataItem[field]));
+  }, [dataItem, field]);
+  const handlecustomTextAreaChange = (event) => {
+    const newValue = event.target.value;
+    setValue(newValue);
+    onChange({
+      dataItem,
+      field,
+      syntheticEvent: event,
+      value: commonFunction.removeHTMLTags(newValue) // to remove html while editing
+    });
+  };
 
-        setOrganizationTypeData([newOrganizatonType, ...organizationTypeData]);
-        setDirtyFlag(true);
+  return (
+    <td style={{ verticalAlign: "top" }}>
+      <div style={{ paddingTop: '7px', paddingBottom: '7px' }}>
+        <TextBox className={field == "DOCUMENTNUMBER" ? `othersDocNum-${value?.toLowerCase()}` : ''} value={value} style={{ borderRadius: "4px", border: "1px solid rgba(0, 0, 0, 0.23)", height: 32 }} onChange={handlecustomTextAreaChange} maxLength={1000} title={value} />
+      </div>
+    </td>
+  );
+};
 
-    };
-    const organizationTypeColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, organizationTypeDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
-        };
-    };
-    const onOrganizationTypeDatastateChange = (event: GridDataStateChangeEvent) => {
-        setOrganizationTypeDataState(event.dataState);
-    };
-    const organizationTypeItemChange = async (event: GridItemChangeEvent) => {
-        let tempChickListType = [...organizationTypeData];
-        const match = tempChickListType.findIndex((i) => i.ORGANIZATIONTYPEID === event.dataItem.ORGANIZATIONTYPEID);
-
-        if (match !== -1 && event.field) {
-            tempChickListType[match] = event.dataItem;
-            setOrganizationTypeData(tempChickListType);
-            setDirtyFlag(true);
-        }
-    };
-
-    const saveOrganizationType = async () => {
-        if (!dirtyFlag) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NODATA,
-            }));
-            return;
-        }
-
-        const current = [...organizationTypeData];
-        const original = [...originalOrganizationTypeData];
-
-        // Validation
-        if (current.some((i) => !i.ORGANIZATIONTYPE || i.ORGANIZATIONTYPE.trim() === "")) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.PLEASEFILLDETAILS,
-            }));
-            return;
-        }
-
-        const uniqueCount = new Set(
-            current.map((i) => i.ORGANIZATIONTYPE.trim().toLowerCase())
-        ).size;
-
-        if (uniqueCount !== current.length) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Organization Types must be unique.",
-            }));
-            return;
-        }
-
-        const items: MasterDataItem[] = [];
-
-        current.forEach((row) => {
-            const originalRow = original.find(o => o.ORGANIZATIONTYPEID === row.ORGANIZATIONTYPEID);
-
-            if (!originalRow) {
-                items.push({
-                    Id: 0,
-                    OperationType: AdminTableEnum.ADD,
-                    Name: row.ORGANIZATIONTYPE.trim(),
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Description: "",
-                    Notes: "",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 1,
-                    orgId: 1
-                });
-            }
-            else if (
-                originalRow.ORGANIZATIONTYPE !== row.ORGANIZATIONTYPE ||
-                originalRow.ISACTIVE !== row.ISACTIVE ||
-                originalRow.SORT_ORDER !== row.SORT_ORDER
-            ) {
-                items.push({
-                    Id: row.ORGANIZATIONTYPEID,
-                    OperationType: AdminTableEnum.UPDATE,
-                    Name: row.ORGANIZATIONTYPE.trim(),
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Description: "",
-                    Notes: "",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-        });
-
-        if (items.length === 0) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NOCHANGES,
-            }));
-            return;
-        }
-
-        const payload: MasterDataPayload = {
-            MasterDataType: AdminTableEnum.ORGANIZATIONTYPE,
-            Items: items,
-        };
-        try {
-            const response = await EasaListService.addMasterDataType(payload);
-            if (response?.data === -1) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: AdminTableEnum.ERROR,
-                    snackbarMessage: "Error saving the Organization Type"
-                }));
-                return;
-            }
-            setDirtyFlag(false);
-            fetchOrganizationType();
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Organization Type saved successfully.",
-            }));
-        } catch (error) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Error saving Organization Type.",
-            }));
-        }
-    };
-    const fetchOrganizationType = () => {
-        let masterdataType = 0;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: OrganizationTypeMasterTable[] = response?.data.map(x => ({
-                    ORGANIZATIONTYPEID: x.ORGANIZATIONTYPEID,
-                    ORGANIZATIONTYPE: x.ORGANIZATIONTYPE,
-                    SORT_ORDER: x.SORT_ORDER,
-                    ISACTIVE: x.ISACTIVE === "Y"
-                }));
-
-                setOrganizationTypeData([...result]);
-                setOriginalOrganizationTypeData([...result]);
-            })
-            .catch((err) => console.error(err));
-    };
-    const organizationtypeDragStart = (dataItem: OrganizationTypeMasterTable) => {
-        setChecklistTypeActiveItem(dataItem);
-    };
-    const organizationTypeReorder = (dataItem: OrganizationTypeMasterTable) => {
-        if (checklistTypeActiveItem === dataItem) return;
-
-        let reorderData = [...organizationTypeData];
-        let prevIndex = reorderData.findIndex((p) => p === checklistTypeActiveItem);
-        let nextIndex = reorderData.findIndex((p) => p === dataItem);
-        reorderData.splice(prevIndex, 1);
-        reorderData.splice(nextIndex, 0, checklistTypeActiveItem || reorderData[0]);
-        let sorOrderIndex: number = 1;
-        reorderData.forEach((row) => {
-            row.SORT_ORDER = sorOrderIndex;
-            sorOrderIndex++;
-        });
-        setOrganizationTypeData(reorderData);
-        setDirtyFlag(true);
-    };
-    //organization handlers
-    function organizationDragStart(dataItem: OrganizationTableData) {
-        setOrganizationActiveItem(dataItem);
+const CustomDropDown = (props, getPurposeList: GetRegulationPurposeData[]) => {
+  const { dataItem } = props;
+  const field = props.field || '';
+  const [inputValue, setInputValue] = useState(dataItem[field]);
+  const handleMultiChange = (event) => {
+    const newVal = event.target.value;
+    setInputValue(newVal);
+    if (props.onChange) {
+      let tempNewData = props.dataItem;
+      props.onChange({
+        dataIndex: 0,
+        dataItem: tempNewData,
+        field: props.field,
+        syntheticEvent: event,
+        value: newVal ? newVal : "",
+      });
     }
-    function organizationMasteReorder(dataItem: OrganizationTableData) {
-        if (selectedPage === AdminTableEnum.ORGANIZATION) {
-            if (organizationActiveItem === dataItem) return;
-            let reorderData = [...organizationData];
-            let prevIndex = reorderData.findIndex((p) => p === organizationActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, organizationActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
+  };
+
+  return (
+    <td  className="purpose-dropdown">
+      <Select
+        className="supp-inputSelect-Box"
+        labelId="suppporting-simple-select-label"
+        value={inputValue}
+        title={inputValue}
+        sx={{ fontSize: '14px', backgroundColor: '#FFFFFF', color: '#253746', fontWeight: "normal", display: 'block' }}
+        input={<OutlinedInput placeholder="Model" />}
+        onChange={(event) => handleMultiChange(event)}
+        disabled={dataItem.Disable}
+        renderValue={(selected) => selected.length == 0 ? "No option selected" : inputValue}
+        placeholder='No Options Selected'
+      >
+        {getPurposeList &&
+          getPurposeList?.map((option) => (
+            <MenuItem key={option.MasterId} value={option.MasterValue} style={{ height: "32px" }}>
+              <ListItemText primary={option.MasterValue} primaryTypographyProps={{ fontSize: '14px', color: '#253746', fontWeight: "normal" }} />
+            </MenuItem>
+          ))}
+      </Select>
+    </td>
+  );
+};
+
+const CustomStatusDropDown = (props, getStatusList: GetStatus[]) => {
+    const { dataItem } = props;
+    const field = props.field || '';
+    const [inputValue, setInputValue] = useState(dataItem[field]);
+    const handleMultiChange = (event) => {
+        const newVal = event.target.value;
+        setInputValue(newVal);
+        if (props.onChange) {
+            let tempNewData = props.dataItem;
+            props.onChange({
+                dataIndex: 0,
+                dataItem: tempNewData,
+                field: props.field,
+                syntheticEvent: event,
+                value: newVal ? newVal : "",
             });
-            setOrganizationData(reorderData);
-        }
-
-        setDirtyFlag(true);
-    }
-    const organizationItemChange = (event: GridItemChangeEvent) => {
-
-        const newData = organizationData.map(item => {
-
-            if (item.ORGANIZATIONID === event.dataItem.ORGANIZATIONID) {
-
-                return {
-                    ...item,
-                    [event.field as string]: event.value
-                };
-            }
-
-            return item;
-        });
-
-        setOrganizationData(newData);
-        setDirtyFlag(true);
-    };
-    const CreateOrganization = () => {
-        const newOrganization: OrganizationTableData = {
-            ORGANIZATIONID: new Date().getTime(),
-            newFlag: true,
-            SORT_ORDER: organizationData.length + 1,
-            NOTES: "",
-            ORGANIZATIONNAME: "",
-            ORGANIZATIONDESCRIPTION: "",
-            ISACTIVE: true,
-
-        };
-        setOrganizationData([newOrganization, ...organizationData]);
-        setDirtyFlag(true);
-
-    };
-    const saveOrganization = async () => {
-
-        if (!dirtyFlag) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NODATA,
-            }));
-            return;
-        }
-
-        const current = [...organizationData];
-        const original = [...originalOrganizationData];
-
-        // validation
-        if (
-            current.some(
-                (i) =>
-                    !i.ORGANIZATIONNAME ||
-                    i.ORGANIZATIONNAME.trim() === ""
-            )
-        ) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.PLEASEFILLDETAILS,
-            }));
-            return;
-        }
-
-        // unique validation
-        const uniqueCombinationCount = new Set(
-            current.map(
-                (i) =>
-                    `${i.ORGANIZATIONNAME.trim().toLowerCase()}__${i.ORGANIZATIONDESCRIPTION?.trim().toLowerCase()}`
-            )
-        ).size;
-
-        if (uniqueCombinationCount !== current.length) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage:
-                    "Organization Name + Description must be unique.",
-            }));
-            return;
-        }
-
-        const items: MasterDataItem[] = [];
-
-        current.forEach((row) => {
-            const originalRow = original.find(o => o.ORGANIZATIONID === row.ORGANIZATIONID);
-            if (!originalRow) {
-
-                items.push({
-                    Id: 0,
-                    OperationType: AdminTableEnum.ADD,
-                    Name: row.ORGANIZATIONNAME.trim(),
-                    Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
-                    Notes: row.NOTES?.trim() || "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: selectedOrgId as number
-                });
-            }
-
-            // UPDATE
-            else if (
-                originalRow.ORGANIZATIONNAME !== row.ORGANIZATIONNAME ||
-                originalRow.ORGANIZATIONDESCRIPTION !== row.ORGANIZATIONDESCRIPTION ||
-                originalRow.NOTES !== row.NOTES ||
-                originalRow.ISACTIVE !== row.ISACTIVE ||
-                originalRow.SORT_ORDER !== row.SORT_ORDER
-            ) {
-
-                items.push({
-                    Id: row.ORGANIZATIONID,
-                    OperationType: AdminTableEnum.UPDATE,
-                    Name: row.ORGANIZATIONNAME.trim(),
-                    Description: row.ORGANIZATIONDESCRIPTION?.trim() || "",
-                    Notes: row.NOTES?.trim() || "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-
-        });
-
-        if (items.length === 0) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NOCHANGES,
-            }));
-            return;
-        }
-
-        const payload: MasterDataPayload = {
-            MasterDataType: AdminTableEnum.ORGANIZATION,
-            Items: items,
-        };
-
-        try {
-            const response = await EasaListService.addMasterDataType(payload);
-            if (response?.data === -1) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: AdminTableEnum.ERROR,
-                    snackbarMessage: "Error saving the Organization"
-                }));
-                return;
-            }
-
-            setDirtyFlag(false);
-
-            if (selectedOrgId !== "") {
-                fetchOrganization(selectedOrgId);
-            }
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Organization saved successfully.",
-            }));
-
-        } catch (error) {
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Error saving Organization.",
-            }));
         }
     };
-    const fetchOrganization = (orgTypeId: number) => {
-        let masterdataType = 1;
-        EasaListService.getAdminMasterDetailsOrgType(masterdataType, orgTypeId)
-            .then((response) => {
-                let result: OrganizationTableData[] = response?.data.map(org => ({
-                    ORGANIZATIONID: org.ORGANIZATIONID,
-                    ORGANIZATIONNAME: org.ORGANIZATIONNAME,
-                    ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
-                    NOTES: org.NOTES,
-                    SORT_ORDER: org.SORT_ORDER,
-                    ISACTIVE: org.ISACTIVE === "Y"
-                }));
-                setOrganizationData([...result]);
-                setOriginalOrganizationData([...result]);
-            })
-            .catch((err) => console.error(err));
-    };
-    const onOrganizationDatastateChange = (event: GridDataStateChangeEvent) => {
-        let temp = { filter: event.dataState.filter, sort: event.dataState.sort, take: undefined, skip: 0 }
-        setOrganizationDataState(temp)
-    };
-    const OrganizationColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
-        };
-    };
-    // Supplier Activity handlers
-    const CreateSupplierActivity = () => {
-        const newSupplierActivity: SupplierActivityMasterTable = {
-            ACTIVITYID: new Date().getTime(),
-            ACTIVITYDESCRIPTION: "",
-            ACTIVITYCATEGORY: "",
-            newFlag: true,
-            SORT_ORDER: supplierActivityData.length + 1,
-            ISACTIVE: true,
-        };
-        setSupplierActivityData([newSupplierActivity, ...supplierActivityData]);
-        setDirtyFlag(true);
-    };
-    const supplierActivityColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, supplierActivityDataState) ? "active kgrid-oss-admin-table-errorCode1-header" : "kgrid-oss-admin-table-errorCode1-header",
-        };
-    };
-    const onSupplierActivityDataStateChange = (event: GridDataStateChangeEvent) => {
-        setSupplierActivityDataState(event.dataState);
-    };
-    const supplierActivityItemChange = async (event: GridItemChangeEvent) => {
-        let tempErrorCodes = [...supplierActivityData];
-        const match = tempErrorCodes.findIndex((i) => i.ACTIVITYID === event.dataItem.ACTIVITYID);
 
-        if (match !== -1 && event.field) {
-            tempErrorCodes[match] = event.dataItem;
-
-            setSupplierActivityData(tempErrorCodes);
-            setDirtyFlag(true);
-        }
-    };
-    const onSaveSupplierActivity = async () => {
-        if (!dirtyFlag) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NODATA,
-            }));
-            return;
-        }
-
-        const current = [...supplierActivityData];
-        const original = [...originalSupplierActivityData];
-
-        if (
-            current.some(
-                (i) =>
-                    !i.ACTIVITYCATEGORY ||
-                    i.ACTIVITYCATEGORY.trim() === ""
-                // !i.ACTIVITYDESCRIPTION ||
-                // i.ACTIVITYDESCRIPTION.trim() === ""
-            )
-        ) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: AdminTableEnum.ERROR,
-                    snackbarMessage: AdminTableEnum.PLEASEFILLDETAILS,
-                })
-            );
-            return;
-        }
-
-        const uniqueCombinationCount = new Set(
-            current.map(
-                (i) =>
-                    `${i.ACTIVITYCATEGORY.trim().toLowerCase()}__${i.ACTIVITYDESCRIPTION.trim().toLowerCase()}`
-            )
-        ).size;
-
-        if (uniqueCombinationCount !== current.length) {
-            dispatch(
-                showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: AdminTableEnum.ERROR,
-                    snackbarMessage:
-                        "Activity Category + Description  must be unique.",
-                })
-            );
-            return;
-        }
-
-        const items: MasterDataItem[] = [];
-
-        current.forEach((row) => {
-            const originalRow = original.find(o => o.ACTIVITYID === row.ACTIVITYID);
-
-            if (!originalRow) {
-                items.push({
-                    Id: 0,
-                    OperationType: AdminTableEnum.ADD,
-                    Name: row.ACTIVITYCATEGORY.trim(),
-                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Notes: "",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-            else if (
-                originalRow.ACTIVITYCATEGORY !== row.ACTIVITYCATEGORY ||
-                originalRow.ACTIVITYDESCRIPTION !== row.ACTIVITYDESCRIPTION ||
-                originalRow.ISACTIVE !== row.ISACTIVE ||
-                originalRow.SORT_ORDER !== row.SORT_ORDER
-            ) {
-                items.push({
-                    Id: row.ACTIVITYID,
-                    OperationType: AdminTableEnum.UPDATE,
-                    Name: row.ACTIVITYCATEGORY.trim(),
-                    Description: row.ACTIVITYDESCRIPTION?.trim() || "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Notes: "",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-        });
-
-        if (items.length === 0) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NOCHANGES,
-            }));
-            return;
-        }
-
-        const payload: MasterDataPayload = {
-            MasterDataType: AdminTableEnum.SUPPLIERACTIVITY,
-            Items: items,
-        };
-
-        try {
-            const response = await EasaListService.addMasterDataType(payload);
-            if (response?.data === -1) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: AdminTableEnum.ERROR,
-                    snackbarMessage: "Error saving the Supplier Activity"
-                }));
-                return;
-            }
-            setDirtyFlag(false);
-            fetchSupplierActivity();
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Supplier Activity saved successfully.",
-            }));
-        } catch (error) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Error saving Supplier Activity.",
-            }));
-        }
-    };
-    const fetchSupplierActivity = () => {
-        let masterdataType = 3;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: SupplierActivityMasterTable[] = response?.data.map(x => ({
-                    ACTIVITYID: x.ACTIVITYID,
-                    ACTIVITYCATEGORY: x.ACTIVITYCATEGORY,
-                    ACTIVITYDESCRIPTION: x.ACTIVITYDESCRIPTION,
-                    ISACTIVE: x.ISACTIVE === "Y"
-                }));
-
-                setSupplierActivityData([...result]);
-                setOriginalSupplierActivityData([...result]);
-            })
-            .catch((err) => console.error(err));
-    };
-    function supplierActivityMasterTableDragStart(dataItem: SupplierActivityMasterTable) {
-        setErrorCodeMasterActiveItem(dataItem);
-    }
-    function supplierActivityMastereorder(dataItem: SupplierActivityMasterTable) {
-        if (selectedPage === AdminTableEnum.SUPPLIERACTIVITY) {
-            if (errorCodeMasterActiveItem === dataItem) return;
-            let reorderData = [...supplierActivityData];
-            let prevIndex = reorderData.findIndex((p) => p === errorCodeMasterActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, errorCodeMasterActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
-            });
-            setSupplierActivityData(reorderData);
-        }
-        setDirtyFlag(true);
-    }
-
-    //supplier category Handles
-    function supplierCategoryMasterTableDragStart(dataItem: SupplierCategoryMasterTable) {
-        setSupplierCategoryActiveItem(dataItem);
-    }
-    function supplierCategoryMasterReorder(dataItem: SupplierCategoryMasterTable) {
-        if (selectedPage === AdminTableEnum.SUPPLIERCATEGORY) {
-            if (supplierCategoryActiveItem === dataItem) return;
-            let reorderData = [...supplierCategoryData];
-            let prevIndex = reorderData.findIndex((p) => p === supplierCategoryActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, supplierCategoryActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
-            });
-            setSupplierCategoryData(reorderData);
-        }
-
-        setDirtyFlag(true);
-    }
-    const supplierCategoryTypeItemChange = async (event: GridItemChangeEvent) => {
-        let tempSupplierCategoryType = [...supplierCategoryData];
-        const match = tempSupplierCategoryType.findIndex((i) => i.CATEGORYID === event.dataItem.CATEGORYID);
-
-        if (match !== -1 && event.field) {
-            tempSupplierCategoryType[match] = event.dataItem;
-            setSupplierCategoryData(tempSupplierCategoryType);
-            setDirtyFlag(true);
-        }
-    };
-    const CreateSupplierCategory = () => {
-        const newSupplierCategory: SupplierCategoryMasterTable = {
-            CATEGORYID: new Date().getTime(),
-            CATEGORYDESCRIPTION: "",
-            newFlag: true,
-            SORT_ORDER: supplierActivityData.length + 1,
-            ISACTIVE: true,
-
-        };
-        setSupplierCategoryData([newSupplierCategory, ...supplierCategoryData]);
-        setDirtyFlag(true);
-
-    };
-    const saveSupplierCategory = async () => {
-        if (!dirtyFlag) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NODATA,
-            }));
-            return;
-        }
-
-        const current = [...supplierCategoryData];
-        const original = [...originalSupplierCategoryData];
-
-        // Validation
-        if (current.some((i) => !i.CATEGORYDESCRIPTION || i.CATEGORYDESCRIPTION.trim() === "")) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.PLEASEFILLDETAILS,
-            }));
-            return;
-        }
-
-        const uniqueCount = new Set(
-            current.map((i) => i.CATEGORYDESCRIPTION.trim().toLowerCase())
-        ).size;
-
-        if (uniqueCount !== current.length) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Supplier Type must be unique.",
-            }));
-            return;
-        }
-
-        const items: MasterDataItem[] = [];
-
-        current.forEach((row) => {
-            const originalRow = original.find(o => o.CATEGORYID === row.CATEGORYID);
-
-            if (!originalRow) {
-                items.push({
-                    Id: 0,
-                    OperationType: AdminTableEnum.ADD,
-                    Name: "",
-                    Description: row.CATEGORYDESCRIPTION.trim(),
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Notes: "",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-            else if (
-                originalRow.CATEGORYDESCRIPTION !== row.CATEGORYDESCRIPTION ||
-                originalRow.ISACTIVE !== row.ISACTIVE ||
-                originalRow.SORT_ORDER !== row.SORT_ORDER
-            ) {
-                items.push({
-                    Id: row.CATEGORYID,
-                    OperationType: AdminTableEnum.UPDATE,
-                    Name: "",
-                    Description: row.CATEGORYDESCRIPTION.trim(),
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Notes: "",
-                    Address: "",
-                    Department: "",
-                    Phone: "",
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-        });
-
-        if (items.length === 0) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NOCHANGES,
-            }));
-            return;
-        }
-
-        const payload: MasterDataPayload = {
-            MasterDataType: AdminTableEnum.SUPPLIERCATEGORY,
-            Items: items,
-        };
-
-        try {
-            const response = await EasaListService.addMasterDataType(payload);
-            if (response?.data === -1) {
-                dispatch(showSnackbar({
-                    snackbarOpen: true,
-                    snackbarType: AdminTableEnum.ERROR,
-                    snackbarMessage: "Error saving the Supplier Category"
-                }));
-                return;
-            }
-            setDirtyFlag(false);
-            fetchSupplierCategory();
-
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Supplier Category saved successfully.",
-            }));
-        } catch (error) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Error saving Supplier Category.",
-            }));
-        }
-    };
-    const fetchSupplierCategory = () => {
-        let masterdataType = 2;
-        EasaListService.getAdminMasterDetailsType(masterdataType)
-            .then((response) => {
-                let result: SupplierCategoryMasterTable[] = response?.data.map(category => ({
-                    CATEGORYID: category.CATEGORYID,
-                    CATEGORYDESCRIPTION: category.CATEGORYDESCRIPTION,
-                    ISACTIVE: category.ISACTIVE === "Y",
-                }));
-                setSupplierCategoryData([...result]);
-                setOriginalSupplierCategoryData([...result]);
-            })
-            .catch((err) => console.error(err));
-    };
-    const onSupplierCategoryDatastateChange = (event: GridDataStateChangeEvent) => {
-        setSupplierCategoryDataState(event.dataState)
-    };
-    const supplierCategoryColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, supplierCategoryDataState) ? "active kgrid-oss-checklistType-header" : "kgrid-oss-checklistType-header",
-        };
-    };
-    // Focal Handlers
-    const CreateFocal = () => {
-        const newFocal: FocalMasterTable = {
-            ID: new Date().getTime(),
-            NAME: "",
-            PHONE: "",
-            ADDRESS: "",
-            EMAIL: "",
-            DEPARTMENT: "",
-            TITLE: "",
-            newFlag: true,
-            SORT_ORDER: focalData.length + 1,
-            ISACTIVE: true,
-        };
-        setFocalData([newFocal, ...focalData]);
-    };
-    const focalColumnPropsBuilder = (field) => {
-        return {
-            field: field,
-            columnMenu: ColumnMenuBuilder,
-            headerClassName: isColumnActive(field, focalDataState) ? "active kgrid-oss-admin-table-errorCode1-header" : "kgrid-oss-admin-table-errorCode1-header",
-        };
-    };
-    const onFocalDataStateChange = (event: GridDataStateChangeEvent) => {
-        setFocalDataState(event.dataState);
-    };
-    const focalItemChange = async (event: GridItemChangeEvent) => {
-        let tempErrorCodes = [...focalData];
-        const match = tempErrorCodes.findIndex((i) => i.ID === event.dataItem.ID);
-
-        if (match !== -1 && event.field) {
-            tempErrorCodes[match] = event.dataItem;
-
-            setFocalData(tempErrorCodes);
-            setDirtyFlag(true);
-        }
-    };
-    const onSaveFocal = async () => {
-        if (!dirtyFlag) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NODATA,
-            }));
-            return;
-        }
-
-        const current = [...focalData];
-        const original = [...originalFocalData];
-        const items: MasterDataItem[] = [];
-
-        current.forEach((row) => {
-            const originalRow = original.find(o => o.ID === row.ID);
-
-            if (!originalRow) {
-                items.push({
-                    Id: 0,
-                    OperationType: AdminTableEnum.ADD,
-                    Name: row.NAME?.trim(),
-                    Description: "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Notes: "",
-                    Address: row.ADDRESS ?? "",
-                    Department: "",
-                    Phone: row.PHONE ?? 0,
-                    Email: "",
-                    Title: "",
-                    orgTypeId: 0
-                });
-            }
-            else if (
-                originalRow.NAME !== row.NAME ||
-                originalRow.PHONE !== row.PHONE ||
-                originalRow.ADDRESS !== row.ADDRESS ||
-                originalRow.EMAIL !== row.EMAIL ||
-                originalRow.DEPARTMENT !== row.DEPARTMENT ||
-                originalRow.TITLE !== row.TITLE ||
-                originalRow.ISACTIVE !== row.ISACTIVE ||
-                originalRow.SORT_ORDER !== row.SORT_ORDER
-            ) {
-                items.push({
-                    Id: row.ID,
-                    OperationType: AdminTableEnum.UPDATE,
-                    Name: row.NAME,
-                    Description: "",
-                    IsActive: row.ISACTIVE ? "Y" : "N",
-                    Notes: "",
-                    Address: row.ADDRESS ?? "",
-                    Department: row.DEPARTMENT ?? "",
-                    Phone: row.PHONE ?? "",
-                    Email: row.EMAIL ?? "",
-                    Title: row.TITLE ?? "",
-                    orgTypeId: 0
-                });
-            }
-        });
-
-        if (items.length === 0) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: AdminTableEnum.NOCHANGES,
-            }));
-            return;
-        }
-
-        const payload: MasterDataPayload = {
-            MasterDataType: AdminTableEnum.FOCALMANAGEMENT,
-            Items: items,
-        };
-
-        try {
-            await EasaListService.addMasterDataType(payload);
-
-            setDirtyFlag(false);
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: "success",
-                snackbarMessage: "Focal saved successfully.",
-            }));
-        } catch (error) {
-            dispatch(showSnackbar({
-                snackbarOpen: true,
-                snackbarType: AdminTableEnum.ERROR,
-                snackbarMessage: "Error saving Focal.",
-            }));
-        }
-    };
-    const handleCreateFocalFromOrg = async (orgId: number, orgTypeId: number) => {
-        setSelectedOrgId(orgTypeId);
-        setSelectedOrganizationId(orgId);
-        setSelectedPage(AdminTableEnum.FOCALMANAGEMENT);
-        setFocalData([]);
-        setOriginalFocalData([]);
-        setFocalDataState({})
-
-        try {
-            const response = await EasaListService.getAdminMasterDetailsTypeFocals(4, orgTypeId, orgId);
-
-            let result: FocalMasterTable[] = response?.data.map(x => ({
-                ID: x.ID,
-                NAME: x.NAME,
-                PHONE: x.PHONE,
-                ADDRESS: x.ADDRESS,
-                EMAIL: x.EMAIL,
-                DEPARTMENT: x.DEPARTMENT,
-                TITLE: x.TITLE,
-                ISACTIVE: x.ISACTIVE === "Y",
-            }));
-
-            setFocalData([...result]);
-            setOriginalFocalData([...result]);
-            setShouldAutoCreateFocal(true);
-
-        } catch (err) {
-            console.error(err);
-        }
-    };
-    const fetchFocal = async (orgName: number, orgTypeId: number) => {
-        let masterdataType = 4;
-        EasaListService.getAdminMasterDetailsTypeFocals(masterdataType, orgName, orgTypeId)
-            .then((response) => {
-                let result: FocalMasterTable[] = response?.data.map(x => ({
-                    ID: x.ID,
-                    NAME: x.NAME,
-                    PHONE: x.PHONE,
-                    ADDRESS: x.ADDRESS,
-                    EMAIL: x.EMAIL,
-                    DEPARTMENT: x.DEPARTMENT,
-                    TITLE: x.TITLE,
-                    ISACTIVE: x.ISACTIVE === "Y",
-                }));
-
-                setFocalData([...result]);
-                setOriginalFocalData([...result]);
-            })
-            .catch((err) => console.error(err));
-    };
-    function focalMasterTableDragStart(dataItem: FocalMasterTable) {
-        setFocalActiveItem(dataItem);
-    }
-    function focalMastereorder(dataItem: FocalMasterTable) {
-        if (selectedPage === AdminTableEnum.FOCALMANAGEMENT) {
-            if (focalActiveItem === dataItem) return;
-            let reorderData = [...focalData];
-            let prevIndex = reorderData.findIndex((p) => p === focalActiveItem);
-            let nextIndex = reorderData.findIndex((p) => p === dataItem);
-            reorderData.splice(prevIndex, 1);
-            reorderData.splice(nextIndex, 0, focalActiveItem || reorderData[0]);
-            let sorOrderIndex: number = 1;
-            reorderData.forEach((row) => {
-                row.SORT_ORDER = sorOrderIndex;
-                sorOrderIndex++;
-            });
-            setFocalData(reorderData);
-        }
-        setDirtyFlag(true);
-    }
-    //sorting functionality
-    const handleSortByChange = (key: keyof SortByData, value: AdminTableEnum.CUSTOM | AdminTableEnum.ASC | AdminTableEnum.DESC, setScreenDirty: boolean = true) => {
-        if (key === 'organization') {
-            let ascChecklistData: OrganizationTableData[] = [...organizationData];
-
-            if (value === AdminTableEnum.ASC || value === AdminTableEnum.DESC) {
-                ascChecklistData = _.orderBy(ascChecklistData, ["ORGANIZATIONNAME"], [value]);
-
-                let i = 1;
-                ascChecklistData = ascChecklistData.map(x => ({ ...x, Sorting: i++ }));
-                setOrganizationData(ascChecklistData);
-            }
-        }
-
-        if (key === 'organizationType') {
-            let ascChecklistData: OrganizationTypeMasterTable[] = [...organizationTypeData];
-
-            if (value === AdminTableEnum.ASC || value === AdminTableEnum.DESC) {
-                ascChecklistData = _.orderBy(ascChecklistData, ["ORGANIZATIONTYPE"], [value]);
-
-                let i = 1;
-                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setOrganizationTypeData(ascChecklistData);
-            }
-        }
-
-        if (key === 'supplierCategory') {
-            let ascChecklistData: SupplierCategoryMasterTable[] = [...supplierCategoryData];
-
-            if (value === AdminTableEnum.ASC || value === AdminTableEnum.DESC) {
-                ascChecklistData = _.orderBy(ascChecklistData, ["CATEGORYDESCRIPTION"], [value]);
-
-                let i = 1;
-                ascChecklistData = ascChecklistData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setSupplierCategoryData(ascChecklistData);
-            }
-        }
-
-        if (key === 'supplierActivity') {
-            let ascErrorCodeData: SupplierActivityMasterTable[] = [...supplierActivityData];
-
-            if (value === AdminTableEnum.ASC || value === AdminTableEnum.DESC) {
-                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["ACTIVITYCATEGORY"], [value]);
-
-                let i = 1;
-                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setSupplierActivityData(ascErrorCodeData);
-            }
-        }
-        if (key === 'focal') {
-            let ascErrorCodeData: FocalMasterTable[] = [...focalData];
-
-            if (value === AdminTableEnum.ASC || value === AdminTableEnum.DESC) {
-                ascErrorCodeData = _.orderBy(ascErrorCodeData, ["NAME"], [value]);
-
-                let i = 1;
-                ascErrorCodeData = ascErrorCodeData.map(x => ({ ...x, SORT_ORDER: i++ }));
-                setFocalData(ascErrorCodeData);
-            }
-        }
-
-        setSortBy({ ...sortBy, [key]: value });
-        if (setScreenDirty) {
-            setDirtyFlag(true);
-        }
-    }
-
-    //Handle fetching Register Types Asynchronously
-    const fetchMasterDataTypes = async () => {
-        const result = await EasaListService.getAdminMasterData();
-        const data = result?.data ?? [];
-        setMasterDataOptions(data);
-    };
-    const handleOrg = async (event) => {
-        const orgTypeId = event.target.value;
-        setSelectedOrgId(orgTypeId);
-        setSelectedOrganizationId("");
-
-        try {
-            const response = await EasaListService.getAdminMasterDetailsOrgType(1, orgTypeId);
-
-            let result: OrganizationTableData[] = response?.data.map(org => ({
-                ORGANIZATIONID: org.ORGANIZATIONID,
-                ORGANIZATIONNAME: org.ORGANIZATIONNAME,
-                ORGANIZATIONDESCRIPTION: org.ORGANIZATIONDESCRIPTION,
-                NOTES: org.NOTES,
-                SORT_ORDER: org.SORT_ORDER,
-                ISACTIVE: org.ISACTIVE === "Y"
-            }));
-
-            const finalResult = [...result];
-            const reversedResult = [...result].toReversed();
-
-            setOrganizationData(finalResult);
-            setOriginalOrganizationData(finalResult);
-
-            if (finalResult.length > 0) {
-                setSelectedOrganizationId(finalResult[0].ORGANIZATIONID);
-            } else {
-                setSelectedOrganizationId("");
-                setFocalData([]);
-                setOriginalFocalData([]);
-            }
-        } catch (err) {
-            console.error(err);
-        }
-    }
-
-    const handleOrganization = (event) => {
-        const orgId = event.target.value;
-        setSelectedOrganizationId(orgId);
-        fetchFocal(selectedOrgId as number, orgId)
-    }
-    useEffect(() => {
-        if (selectedOrgId !== "") {
-            fetchOrganization(selectedOrgId);
-        }
-    }, [selectedOrgId])
-    useEffect(() => {
-        if (shouldAutoCreateFocal) {
-            CreateFocal();
-            setShouldAutoCreateFocal(false);
-        }
-    }, [focalData, shouldAutoCreateFocal]);
-    useEffect(() => {
-        var storageService = new StorageService();
-        let isItarApp = storageService.getIsItarApp();
-        setIsItarAppFlag(isItarApp == "Y" ? true : false);
-        fetchOrganizationType();
-        fetchSupplierCategory();
-        fetchSupplierActivity();
-    }, []);
-    useEffect(() => {
-        if (organizationTypeData.length > 0 && selectedOrgId === "") {
-            setSelectedOrgId(organizationTypeData[0]?.ORGANIZATIONTYPEID);
-        }
-    }, [organizationTypeData, selectedOrgId]);
-    useEffect(() => {
-        if (organizationData.length > 0 && selectedOrganizationId === "") {
-            setSelectedOrganizationId(organizationData[0].ORGANIZATIONID);
-        }
-    }, [organizationData, selectedOrganizationId]);
-    useEffect(() => {
-        if (selectedOrgId !== "" && selectedOrganizationId !== "") {
-            fetchFocal(selectedOrgId, selectedOrganizationId);
-        }
-    }, [selectedOrgId, selectedOrganizationId]);
-
-    useEffect(() => {
-        const storageService = new StorageService();
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, dirtyFlag);
-
-        return () => {
-            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
-        };
-    }, [dirtyFlag]);
-    useEffect(() => {
-        fetchMasterDataTypes();
-    }, []);
     return (
-        <div className="EASA-Admin-table-maintenance">
-            <div className="EASA-Admin-table-maintenance-topbar">
-                <div>Master Data</div>
-                <Select id="admin-table-page-selector" style={{ maxWidth: isItarAppFlag ? 280 : 210, minWidth: isItarAppFlag ? 280 : 210 }} value={selectedPage} onChange={handlePageChange} size="medium">
-                    {masterDataOptions.map(({ MasterDataId, MasterData }) => (
-                        <MenuItem
-                            key={MasterDataId}
-                            value={MasterData}
-                            className="text-normal"
-                        >
-                            {MasterData}
+        <td className="purpose-dropdown">
+            <Select
+                className="supp-inputSelect-Box"
+                labelId="suppporting-simple-select-label"
+                value={inputValue}
+                title={inputValue}
+                sx={{ fontSize: '14px', backgroundColor: '#FFFFFF', color: '#253746', fontWeight: "normal", display: 'block' }}
+                input={<OutlinedInput placeholder="Model" />}
+                onChange={(event) => handleMultiChange(event)}
+                disabled={dataItem.Disable}
+                renderValue={(selected) => selected.length == 0 ? "No option selected" : inputValue}
+                placeholder='No Options Selected'
+            >
+                {getStatusList &&
+                    getStatusList?.map((option) => (
+                        <MenuItem key={String(option.StatusId)} value={option.Status} style={{ height: "32px" }}>
+                            <ListItemText primary={option.Status} primaryTypographyProps={{ fontSize: '14px', color: '#253746', fontWeight: "normal" }} />
                         </MenuItem>
                     ))}
-                </Select>
-                {(selectedPage === AdminTableEnum.ORGANIZATION || selectedPage === AdminTableEnum.FOCALMANAGEMENT) && (
-                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
-                        Organization Type
-                        <Select
-                            id="admin-table-page-selector"
-                            style={{ maxWidth: 280, minWidth: 250 }}
-                            value={selectedOrgId}
-                            onChange={handleOrg}
-                            size="medium"
-                            MenuProps={{
-                                PaperProps: {
-                                    sx: {
-                                        height: 170,
-                                        overflowY: "auto"
-                                    }
-                                }
-                            }}
-                        >
-                            {(organizationTypeData).map(item => (
-                                <MenuItem
-                                    key={item.ORGANIZATIONTYPEID}
-                                    value={item.ORGANIZATIONTYPEID}
-                                    className="text-normal"
-                                >
-                                    {item.ORGANIZATIONTYPE}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </div>
-                )}
-                {(selectedPage === AdminTableEnum.FOCALMANAGEMENT) && (
-                    <div style={{ marginLeft: 16, display: "flex", gap: 8, justifyContent: "flex-start", alignItems: "center", fontSize: 14 }}>
-                        Organization
-                        <Select
-                            id="admin-table-page-selector"
-                            value={selectedOrganizationId}
-                            onChange={handleOrganization}
-                            size="medium"
-                            sx={{ minWidth: 250, maxWidth: 250 }}
-                            MenuProps={{
-                                PaperProps: {
-                                    sx: {
-                                        minHeight: 30,
-                                        maxHeight: 170,
-                                        maxWidth: 250,
-                                        width: 250,
-                                    }
-                                }
-                            }}
-                        >
-                            {organizationData.map(item => (
-                                <MenuItem
-                                    key={item.ORGANIZATIONID}
-                                    value={item.ORGANIZATIONID}
-                                    sx={{
-                                        maxWidth: 250,
-                                        whiteSpace: "nowrap",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        display: "block"
-                                    }}
-                                >
-                                    {item.ORGANIZATIONNAME}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </div>
-                )}
-            </div>
-
-            <div className="EASA-Admin-table-maintenance-section">
-                {selectedPage === AdminTableEnum.SUPPLIERCATEGORY && (
-                    <>
-                        <SupplierCategoryTable
-                            key="kgrid-oss-admin-table-checklistType-comp"
-                            columnPropsBuilder={supplierCategoryColumnPropsBuilder}
-                            KEY={SUPPLIER_CATEGORY_DATA_ITEM_KEY}
-                            supplierCategoryData={supplierCategoryData}
-                            dataState={supplierCategoryDataState}
-                            dataStateChange={onSupplierCategoryDatastateChange}
-                            itemChange={supplierCategoryTypeItemChange}
-                            createSupplierCategory={CreateSupplierCategory}
-                            saveSupplierCategory={saveSupplierCategory}
-                            dragStart={supplierCategoryMasterTableDragStart}
-                            reorder={supplierCategoryMasterReorder}
-                            sortBy={sortBy.supplierCategory}
-                            handleSortByChange={handleSortByChange}
-                        />
-                    </>
-                )}
-
-                {
-                    selectedPage === AdminTableEnum.ORGANIZATION && (
-                        <OrganizationTable
-                            key="kgrid-oss-admin-table-errorCode-comp-1"
-                            KEY={ORGANIZATION_DATA_ITEM_KEY}
-                            columnPropsBuilder={OrganizationColumnPropsBuilder}
-                            organizationData={organizationData}
-                            dataState={organizationDataState}
-                            dataStateChange={onOrganizationDatastateChange}
-                            itemChange={organizationItemChange}
-                            createOrganization={CreateOrganization}
-                            onCreateFocal={handleCreateFocalFromOrg}
-                            saveOrganization={saveOrganization}
-                            dragStart={organizationDragStart}
-                            reorder={organizationMasteReorder}
-                            selectedOrgId={selectedOrgId as number}
-                            sortBy={sortBy.supplierActivity}
-                            handleSortByChange={handleSortByChange}
-                        />
-                    )
-                }
-
-                {selectedPage === AdminTableEnum.ORGANIZATIONTYPE && (
-                    <OrganizationTypeTable
-                        key="kgrid-oss-admin-table-checklistType-comp"
-                        KEY={ORGANIZATION_TYPE_DATA_ITEM_KEY}
-                        columnPropsBuilder={organizationTypeColumnPropsBuilder}
-                        organizationTypeData={organizationTypeData}
-                        dataState={organizationTypeDataState}
-                        dataStateChange={onOrganizationTypeDatastateChange}
-                        itemChange={organizationTypeItemChange}
-                        createOrganizationType={CreateOrganizationType}
-                        saveOrganizationType={saveOrganizationType}
-                        dragStart={organizationtypeDragStart}
-                        reorder={organizationTypeReorder}
-                        sortBy={sortBy.organizationType}
-                        handleSortByChange={handleSortByChange}
-                    />
-                )}
-
-                {selectedPage === AdminTableEnum.SUPPLIERACTIVITY && (
-                    <SupplierActivityTable
-                        key="kgrid-oss-admin-table-errorCode-comp-1"
-                        KEY={SUPPLIER_ACTIVITY_DATA_ITEM_KEY}
-                        columnPropsBuilder={supplierActivityColumnPropsBuilder}
-                        supplierActivityData={supplierActivityData}
-                        dataState={supplierActivityDataState}
-                        dataStateChange={onSupplierActivityDataStateChange}
-                        itemChange={supplierActivityItemChange}
-                        createSupplierActivity={CreateSupplierActivity}
-                        saveSupplierActivity={onSaveSupplierActivity}
-                        dragStart={supplierActivityMasterTableDragStart}
-                        reorder={supplierActivityMastereorder}
-                        sortBy={sortBy.supplierActivity}
-                        handleSortByChange={handleSortByChange}
-                    />
-                )}
-                {selectedPage === AdminTableEnum.FOCALMANAGEMENT && (
-                    <FocalTable
-                        key="kgrid-oss-admin-table-errorCode-comp-1"
-                        KEY={FOCAL_DATA_ITEM_KEY}
-                        columnPropsBuilder={focalColumnPropsBuilder}
-                        focalData={focalData}
-                        expandFocalId={expandFocalId}
-                        dataState={focalDataState}
-                        dataStateChange={onFocalDataStateChange}
-                        itemChange={focalItemChange}
-                        createFocal={CreateFocal}
-                        saveFocal={onSaveFocal}
-                        selectedOrgId={selectedOrgId as number}
-                        selectedOrganizationId={selectedOrganizationId as number}
-                        fetchFocal={fetchFocal}
-                        dragStart={focalMasterTableDragStart}
-                        reorder={focalMastereorder}
-                        sortBy={sortBy.focal}
-                        handleSortByChange={handleSortByChange}
-                        setDirtyFlag={setDirtyFlag}
-                    />
-                )}
-            </div>
-        </div>
+            </Select>
+        </td>
     );
 };
 
-export default TableMaintenance;
+const SupportingInsertPopupData = (props) => {
+  const columnProps = field => {
+    return {
+      field: field,
+      columnMenu: ColumnMenu,
+      headerClassName: isColumnActive(field, dataState) ? 'active' : ''
+    };
+  };
+
+  const attachColumnProps = field => {
+    return {
+      field: field,
+      columnMenu: ColumnMenu,
+      headerClassName: isColumnActive(field, attachDocdataState) ? 'active' : ''
+    };
+  };
+
+  const isColumnActive = (field, dataState) => {
+    return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
+  };
+  const dispatch = useDispatch();
+  const gridRef = useRef<any>(null);
+  const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
+  const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+  const [selectedState, setSelectedState] = React.useState<{ [id: string]: boolean | number[] }>({});
+  const [selectedSupState, setSelectedSupState] = useState<{ [id: string]: boolean | number[] }>({});
+  const [selectedSupProject, setSelectedSupProject] = useState<string[]>([]);
+  const [searchId, setSearchId] = useState<string>(props.projectId);
+  const [ddtlSearchId, setddtlSearchId] = useState<string>(props.ddtlProjectId)
+  const isTemplate = props.isTemplate;
+  const [getData, setData] = useState<InsertSupportingDetails[]>([]);
+  const [selectedValue, setSelectedValue] = useState<number>(0);
+  const [placeholder, setPlaceholder] = useState<string>("");
+  const [selectedItem, setSelectedItem] = useState<RefDocGridDetails[]>([]);
+  const [refGridCount, setRefGridCount] = useState(props.supGridLenght);
+  var { reportId = "" } = useParams();
+  const reportIdParam = Number(reportId);
+  const [attachmentData, setAttachmentData] = useState<EspecDocAttachement[]>([]);
+  const [getAttachDocData, setAttachDocData] = useState<any>();
+  const [attachmentModal, setAttachmentModal] = useState<boolean>(false);
+  const [sortingValue, setSortingValue] = useState<boolean>(true);
+  const [popUpHeader, setPopUpHeader] = useState<string>("");
+  const [dataState, setDataState] = React.useState<State>({});
+  const [attachDocdataState, setAttachDocDataState] = React.useState<State>({});
+  const [showTools, setShowTools] = useState(true);
+  const [getRefDataSource, setRefDataSource] = useState<RefDataSource[]>([]);
+  const [gridConfig, setGridConfig] = useState<any>();
+  let validationBool: boolean = false;
+  let isDocNumDuplicate: boolean = false;
+  let userToken = new UserToken();
+  let isOpenedFromDocumentNumber = props.isOpenedFromDocumentNumber;
+  const [isButtonDisabled, setIsButtonDisabled] = useState(false);
+  const [sourceNames, setSourceName] = useState<string[]>([]);
+  const [getPurposeList, setPurposeList] = useState<GetRegulationPurposeData[]>([]);
+  const [getStatusList, setStatusList] = useState<GetStatus[]>([]);
+  // handle popup height dynamucally
+  const getInitialScreenDimensions = () => {
+    return {
+      height: window.innerHeight * 0.90,
+      width: window.innerWidth * 0.70
+    };
+  };
+
+  const getDynamicScreenBasedOnWindowSize = () => {
+    return {
+      height: window.innerHeight * 0.90,
+      width: window.innerWidth * 0.70
+    };
+  };
+
+  const [dynamicScreenSize, setDynamicScreenSize] = useState(getInitialScreenDimensions());
+
+  useEffect(() => {
+    const handleResize = () => {
+      setDynamicScreenSize(getDynamicScreenBasedOnWindowSize());
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const sourceDetails = getRefDataSource.map(r => r.SourceName).filter(name => name !== 'Others');
+    setSourceName(sourceDetails);
+    if (props.isOpenedFromDocumentNumber) {
+      setIsButtonDisabled(true);
+    }
+  }, [getRefDataSource]);
+
+  const fetchInitialSupInsertData = async () => {
+    let refDetails = {
+      RefDocId: 0,
+      RptId: reportIdParam,
+      TableCode: props && props.refTableCode,
+      ReqCompId: 0
+    } as ConfigRefDtl;
+      const [refDataResponse, configRefDataResult, regPurposeData, easaStatusData] = await Promise.all([
+      SuppInsertPopupDataService.getReferenceDataSource(props.configRefSourceId),
+      ReferenceDataGridService.getReferenceDocumentDetails(refDetails),
+      SuppInsertPopupDataService.GetRegulationPurposeMasterData(),
+      ManageReferenceDataService.GetEasaStatus()
+    ]);
+    if (regPurposeData && regPurposeData.data) {
+      setPurposeList(regPurposeData.data);
+    };
+    if (easaStatusData && easaStatusData.data) {
+        setStatusList(easaStatusData.data);
+    }
+    if (configRefDataResult && configRefDataResult.data && configRefDataResult.data?.RefDetailsList) {
+      setRefGridCount(configRefDataResult.data.RefDetailsList.length);
+      setSelectedItem(configRefDataResult.data.RefDetailsList);
+    };
+    if (refDataResponse && refDataResponse.data) {
+      setRefDataSource(refDataResponse.data);
+      if (new CommonFunction().IsEASAReport()) {
+        let getDCSourceIndex = ddtlSearchId?.trim().length > 0 ? 
+        refDataResponse.data.findIndex((source) => source.SourceName === ReferenceDataSourceName.DDTL) :
+        refDataResponse.data.findIndex((source) => source.SourceName === ReferenceDataSourceName.DC);
+        const checkIsDCPresent = refDataResponse.data.filter(list => list.SourceId == 6);
+        if (checkIsDCPresent.length > 0) {
+          setSelectedValue(checkIsDCPresent[0].SourceId);
+          searchId?.length > 0 ? getSearchData(searchId, checkIsDCPresent[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : 
+           getSearchData(0, checkIsDCPresent[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) ;
+        } else {
+          setSelectedValue(refDataResponse.data[getDCSourceIndex].SourceId);
+          if (isTemplate === "DQN") {
+           ddtlSearchId?.trim().length > 0 ? getSearchData(ddtlSearchId,refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : getSearchData(searchId, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList)
+          }
+          else {
+            searchId?.length > 0 ? getSearchData(searchId, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : getSearchData(0, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList);
+          }
+        }
+      } else {
+        getSearchData(0, refDataResponse.data[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList);
+        setSelectedValue(refDataResponse.data[0].SourceId);
+      }
+
+    };
+  };
+
+  useEffect(() => {
+    if (props.configRefSourceId) {
+      fetchInitialSupInsertData();
+    }
+    if (props.showOtherOtpion) {
+      const otherOption: RefDataSource[] = [
+        {
+          SourceId: String(isTemplate) === "DDTL" ? 9 : 3,  //9 indicates Others DDTL, 3 - Others
+          SourceName: "Others",
+          IsITAR: "N",
+          AuthAPI: null,
+          AuthKey: null,
+          APIUrl: null,
+          SourceQuery: null,
+          DBType: null,
+          ConnectionStrName: null,
+        },
+      ];
+      const refDetails: ConfigRefDtl = {
+        RefDocId: 0,
+        RptId: reportIdParam,
+        TableCode: props?.refTableCode,
+        ReqCompId: 0,
+      };
+      Promise.all([
+        SuppInsertPopupDataService.GetInsertSupportPopupData(null, String(isTemplate) === "DDTL" ? "9" : "3"),
+        ReferenceDataGridService.getReferenceDocumentDetails(refDetails),
+      ])
+        .then(([gridColumnData, configRefDataResult]) => {
+          if (gridColumnData?.data?.ColumnData) {
+            setGridConfig(gridColumnData.data.ColumnData);
+          }
+          if (configRefDataResult?.data && Array.isArray(configRefDataResult.data.RefDetailsList)) {
+            setRefGridCount(configRefDataResult.data.RefDetailsList.length);
+            setSelectedItem(configRefDataResult.data.RefDetailsList);
+          }
+          setShowTools(false);
+          setRefDataSource(otherOption);
+          setSelectedValue(otherOption[0].SourceId);
+        })
+        .catch((err) => { });
+    }
+  }, [props.configRefSourceId, props.showOtherOtpion]);
+
+  const handleSearchTextChange = (searchId: any, dataSource) => {
+    InsertSupportingCheckedDetail = [];
+    if (searchId?.trim() === "") {
+      dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Input text is required." }));
+    } else {
+      getSearchData(searchId, dataSource, dataState, getPurposeList, selectedItem);
+      setSelectedState({});
+      setSelectedSupState({});
+      InsertSupportingCheckedDetail = [];
+    }
+  }
+  const formatDate = (date) => {
+    if (!date) return "";
+    const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  };
+  const getSearchData = (searchId, dataSource, dataState, purposeData: GetRegulationPurposeData[] = [], refGridSelectedData:RefDocGridDetails[] = []) => {
+    SuppInsertPopupDataService.GetInsertSupportPopupData(searchId, dataSource).then((response) => {
+      // TODO:
+      //if (response.data && response.data.GridResult[0].NonUsItarFlag != true) {
+      if (response.data) {
+        InsertSupportingDetailData = response.data.GridResult;
+        const checkIsDCPresent = getRefDataSource.filter(list => list.SourceId == 6);
+        for (let i = 0; i < InsertSupportingDetailData.length; i++) {
+          let duplicateValue = refGridSelectedData.filter(d => d.DocumentNumber == InsertSupportingDetailData[i].DOCUMENTNUMBER);
+          if (duplicateValue.length > 0) {
+            InsertSupportingDetailData[i].Disable = true;
+            if (purposeData && purposeData.length > 0) {
+              if (checkIsDCPresent.length > 0 && new CommonFunction().IsEASAReport() && selectedValue == 6) {
+                InsertSupportingDetailData[i].PURPOSE = duplicateValue[0].Purpose ? duplicateValue[0].Purpose : "";
+              }
+            }
+          } else {
+            if (checkIsDCPresent.length > 0 && new CommonFunction().IsEASAReport() && selectedValue == 6) {
+              InsertSupportingDetailData[i].PURPOSE = "";
+            }
+          }
+        }
+        response.data.GridResult.forEach((item: any) => {
+          Object.keys(item).forEach((key) => {
+            const value = item[key];
+            if (value != null && isDateField(value)) {
+              const d = new Date(item[key]);
+              if (!isNaN(d.getTime())) {
+                d.setHours(0, 0, 0, 0);
+                item[key] = formatDate(d);
+              }
+            }
+
+          });
+        });
+
+        //if (response.data.GridResult.length > 0){
+        //setData(process(response.data.GridResult, dataState));
+        //}
+        setData(response.data.GridResult || []);
+        setGridConfig(response.data.ColumnData);
+        setPlaceholder(response.data.InputPlaceholder);
+      }
+      // TODO:
+      // else if (response.data[0].NonUsItarFlag) {
+      //   setData(process([], dataState));
+      //   InsertSupportingDetailData = [];
+      //   dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Unauthorized Access Denied !" }));
+      // }
+    }).catch(error => {
+      console.error('Error fetching data:', error);
+    });
+  }
+
+  const modalStyle = {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: "translate(-50%, -50%)",
+    width: 1090,
+    bgcolor: "background.paper",
+    boxShadow: 24,
+    borderRadius: "0.5rem",
+    padding: '24px',
+  };
+
+  // const onSelectionChange = React.useCallback(
+  //   (event) => {
+  //     const newSelectedState = getSelectedState({
+  //       event,
+  //       selectedState: selectedState,
+  //       dataItemKey: DATA_ITEM_KEY,
+  //     });
+  //     setSelectedState(newSelectedState);
+  //   },
+  //   [selectedState]
+  // );
+
+  // const onHeaderSelectionChange = React.useCallback((event) => {
+  //   const checkboxElement = event.syntheticEvent.target;
+  //   const checked = checkboxElement.checked;
+  //   const newSelectedState = {};
+  //   event.dataItems.forEach((item) => {
+  //     newSelectedState[idGetter(item)] = checked;
+  //   });
+  //   setSelectedState(newSelectedState);
+  // }, []);
+
+  // useEffect(() => {
+  //   let isUsPerson = userToken.isCurrentUserUSPerson();
+  //   setCurrentUserUSPerson(isUsPerson);
+  // });
+
+  // useEffect(() => {
+  //   if (InsertSupportingDetailData && InsertSupportingDetailData.length > 0) {
+  //     setData(process(InsertSupportingDetailData, dataState).data); // Client-side sorting here
+  //   }
+  // }, [dataState]);
+
+  useEffect(() => {
+    if (attachmentData && attachmentData.length > 0) {
+      setAttachDocData(process(attachmentData, attachDocdataState));
+    }
+  }, [attachmentData, attachDocdataState]);
+
+  useEffect(() => {
+    const filteredSelectedState = Object.fromEntries(Object.entries(selectedSupState).filter(([key, value]) => value))
+    setSelectedSupProject(Object.keys(filteredSelectedState))
+  }, [selectedSupState]);
+
+  useEffect(() => {
+    if (getSelectedSourceName(selectedValue) == "Others") {
+      setShowTools(false);
+    } else {
+      setShowTools(true);
+    }
+  }, [selectedValue]);
+
+  const handleCheckboxChange = (e, dataItem) => {
+    const newSelectedState = { ...selectedState, [idGetter(dataItem)]: e.target.checked };
+    setSelectedState(newSelectedState);
+    setSelectedSupState(newSelectedState);
+    if (e.target.checked == true) {
+      InsertSupportingCheckedDetail.push(dataItem);
+    }
+    else {
+      let index = InsertSupportingCheckedDetail.findIndex((d: any) => d.DocumentNumber === dataItem.DocumentNumber);
+      InsertSupportingCheckedDetail.splice(index, 1);
+    }
+  };
+
+  const deleteOthersGridData = (e, dataItem) => {
+    userDefinedConfirm({ message: 'Are you sure you want to delete this?', okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+      ({ button, input }) => {
+        if (selectedState != null) {
+          delete selectedState[dataItem.COLUMNINDEX];
+          setSelectedState(selectedState);
+          setSelectedSupState(selectedState);
+          if (selectedSupProject != null && selectedSupProject.length > 0) {
+            setSelectedSupProject(selectedSupProject.filter(x => x !== `${dataItem.COLUMNINDEX}`));
+          }
+        }
+        setData(getData.filter((d: any) => d.DOCUMENTID !== dataItem.DOCUMENTID));
+        let index = InsertSupportingCheckedDetail.findIndex((d: any) => d.DOCUMENTID === dataItem.DOCUMENTID);
+        InsertSupportingCheckedDetail.splice(index, 1);
+        let index1 = InsertSupCheckItems.findIndex((d: any) => d.DOCUMENTID === dataItem.DOCUMENTID);
+        InsertSupCheckItems.splice(index1, 1);
+        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Record deleted successfully." }));
+      },
+      () => {
+        return;
+      }
+    );
+  }
+
+  const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
+    let k_grid_width = document.querySelector("#kgrid-oss-pmdb-SuppInsertlookup")?.clientWidth;
+    let fixedWidth = totalColumnFixedWidth;
+    let dynamicWidth = 0;
+    //Minimum and Maximum Screen width needs to set as per requirement
+    //Minimum screen width is set to avoid ellipses in the header , value will differ as per total no of grid columns
+    let minScreenWidth = 1242;
+    let maxScreenWidth;
+    // console.log(k_grid_width + "" + window.innerWidth);
+    if (k_grid_width) {
+      if (k_grid_width <= minScreenWidth) {
+        return minWidth;
+      }
+      else {
+        dynamicWidth = k_grid_width - fixedWidth;
+        if (width == 0 && dynamicWidth > 0 && percentage > 0) {
+          const dynamicColumnWidth = Math.round(dynamicWidth * (percentage / 100));
+          return Math.max(minWidth, dynamicColumnWidth);
+        }
+        else {
+          return calculatedDynamicColWidth != 0 ? minWidth > (dynamicWidth - calculatedDynamicColWidth) ? minWidth : undefined : undefined
+        }
+      }
+    }
+  }
+
+  useEffect(() => {
+    if (gridRef?.current) {
+      const headerCells = gridRef.current.element.querySelectorAll('.k-header');
+      let calculatedFixedColumnWidth = 0;
+      let dynamicWidth = 0;
+      headerCells.forEach((cell, index) => {
+        if (gridRef.current.columns[index].width != undefined) {
+          if (gridRef.current.columns[index].width.toString().indexOf('px') > -1) {
+            calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRef.current.columns[index].width)
+          }
+          else {
+            dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
+          }
+        };
+        const columnHeader = gridRef.current.columns[index].title;
+        cell.title = columnHeader;
+      });
+      setCalculatedDynamicColWidth(dynamicWidth);
+      setTotalColumnFixedWidth(calculatedFixedColumnWidth)
+    }
+  }, [gridRef, getData]);
+
+  const itemChange = (e: GridItemChangeEvent) => {
+    let newData = getData.map((item) => {
+      if (item.DOCUMENTID === e.dataItem.DOCUMENTID) {
+        item[e.field || ''] = e.value;
+      }
+      return item;
+    });
+    setData(newData);
+  };
+
+  const InsertOtherdata = (existingData: RefDocGridDetails | null = null) => {
+    const newdata: InsertSupportingDetails = {
+      FORMATTEDDOCNUMBER: "",
+      ATTACHMENTCOUNT: 0,
+      COLUMNINDEX: getRandomNegativeNumber(),
+      DOCUMENTCONTENT: "",
+      DOCUMENTID: getRandomNegativeNumber(),
+      DOCUMENTNUMBER: existingData ? existingData.DocumentNumber : "",
+      ESPECRELDATE: "",
+      GRREASON: "",
+      ITARFLAG: false,
+      NOTES: "",
+      PMDBPROJECTTITLE: "",
+      PROJECTNUMBER: "",
+      REVISIONDESC: "",
+      REVLEVEL: existingData ? existingData.RevLevel : "",
+      SOURCENAME: "",
+      TITLE: "",
+      DOCFILENAME: "",
+      SDRLSTATUS: "",
+      inEdit: true,
+      Disable: false,
+      DOCUMENTTITLE: existingData ? existingData.DocumentTitle : "",
+      SOURCE: existingData ? existingData.Source : "",
+      RefDocId: existingData ? existingData.RefDocId : 0,
+      PURPOSE: "",
+      STATUS: ""
+    }
+    if (isOpenedFromDocumentNumber) {
+      setData([newdata]);
+    }
+    else {
+      setData([...getData, newdata]);
+    }
+
+    InsertSupportingCheckedDetail.push(newdata);
+    const newSelectedState = { ...selectedState, [idGetter(newdata)]: true };
+    setSelectedState(newSelectedState);
+    setSelectedSupState(newSelectedState);
+    if(String(isTemplate) === "DDTL")
+    {
+      getSearchData(null,"9", dataState);
+    }
+    else{
+      getSearchData(null,"3", dataState);
+    }
+    
+  }
+
+  const handleSelectedValue = (e) => {
+    const inputValue = e.target.value;
+    setDataState({});
+    const isOthers = getSelectedSourceName(inputValue) === "Others";
+    setSelectedValue(inputValue);
+
+    if (isTemplate === "DQN" || isTemplate === "DDTL") {
+      if (getSelectedSourceName(inputValue) === ReferenceDataSourceName.DC)  
+      {
+        getSearchData(searchId?.trim().length > 0 ? searchId : 0, inputValue, dataState, getPurposeList, selectedItem);
+      }
+      if (getSelectedSourceName(inputValue) === ReferenceDataSourceName.DDTL) {
+        getSearchData(ddtlSearchId?.trim().length > 0 ? ddtlSearchId : 0, inputValue, dataState, getPurposeList, selectedItem);
+      }
+    }
+    else {
+      getSearchData(0, inputValue, dataState, getPurposeList, selectedItem);
+      setSearchId("")
+    }
+
+    setShowTools(!isOthers);
+    setSortingValue(!isOthers);
+    setData([]);
+    setSelectedState({});
+    setSelectedSupState({});
+    setSelectedSupProject([]);
+    InsertSupportingDetailData = [];
+    InsertSupCheckItems = [];
+    InsertSupportingCheckedDetail = [];
+    InsertRefCheckItems = [];
+    if (isOpenedFromDocumentNumber && props.existingData !== null) {
+      setIsButtonDisabled(isOpenedFromDocumentNumber);
+      if (props.isOpen && props.IsManageSupTab && isOpenedFromDocumentNumber && !sourceNames.includes(inputValue)) {
+        InsertOtherdata(props.existingData); // Call InsertOtherdata when the modal opens
+      }
+    }
+  }
+
+  const getRandomNegativeNumber = (): number => {
+    return -(Math.floor(1000 + Math.random() * 9000));
+  }
+
+  const onInsertSupportingCheckedItemClick = () => {
+    //Apply clear error color logic
+    let docuNumElem = document.querySelectorAll('[class*=othersDocNum]');
+    for (let i = 0; i < docuNumElem.length; i++) {
+      docuNumElem[i].setAttribute("style", "border: 1px solid rgba(0, 0, 0, 0.23);");
+    };
+
+    for (let i = 0; i < InsertSupportingCheckedDetail.length; i++) {
+      if (InsertSupportingCheckedDetail[i].DOCUMENTNUMBER == "" || InsertSupportingCheckedDetail[i].REVLEVEL == "") {
+        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Please fill the required fields Document Number and Rev level." }));
+        validationBool = true; // checking for empty field validation 
+        break;
+      }
+      else { // checking for duplicate value for DocumentNumber and RevLevel
+        let valueDocNum = InsertSupportingCheckedDetail.map(function (item) { return item.DOCUMENTNUMBER });
+        for (let j = 0; j < InsertSupportingCheckedDetail.length; j++) {
+          let duplicateArr = InsertSupportingCheckedDetail.filter(d => d.DOCUMENTNUMBER == valueDocNum[j])
+          if (duplicateArr.length > 1) {
+            duplicateArr?.forEach((x) => {
+              let docuNumElem = document.getElementsByClassName(`othersDocNum-${x?.DOCUMENTNUMBER.toLowerCase().trim()}`);
+              for (let i = 0; i < docuNumElem.length; i++) {
+                docuNumElem[i].setAttribute("style", "border: 1px solid red;");
+              }
+            });
+            isDocNumDuplicate = true;
+            break;
+          }
+        }
+        if (isDocNumDuplicate == true) {
+          dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Document Number should be unique." }));
+          break;
+        }
+      }
+    }
+    if (validationBool == false && isDocNumDuplicate == false) {
+      InsertRefCheckItemsData();
+    }
+  };
+
+  const numberToAlphabet = (num) => {
+    let result = "";
+    while (num > 0) {
+      num--;
+      result = String.fromCharCode((num % 26) + 65) + result;
+      num = Math.floor(num / 26);
+    }
+    return result;
+  };
+
+  const handleRefSequenced = (sequence) => {
+    const hasDigit = /[0-9]/.test(props?.sequenceStartWith);
+    const hasAlpha = /[A-Za-z]/.test(props?.sequenceStartWith);
+    if (props && props?.sequenceStartWith?.includes('.')) {
+      return props.sequenceStartWith?.replace('.1', `.${sequence}`).toString();
+    } else if (hasAlpha) {
+      return numberToAlphabet(sequence).toLowerCase();
+    } else if (hasDigit) {
+      return sequence.toString();
+    } else {
+      return sequence.toString();
+    }
+  };
+
+  const InsertRefCheckItemsData = () => {
+    let supportingDataNumberCount: number = refGridCount + 1;
+     console.log("InsertSupportingCheckedDetail == ",InsertSupportingCheckedDetail);
+    for (let i = 0; i < InsertSupportingCheckedDetail.length; i++) {
+      let InsertRefCheckItemsDetails: ConfigRefDocDetails = {} as ConfigRefDocDetails;
+      console.log("InsertSupportingCheckedDetail[i] == ",InsertSupportingCheckedDetail[i]);
+
+      InsertRefCheckItemsDetails.DocumentNumber = InsertSupportingCheckedDetail[i].FORMATTEDDOCNUMBER !== '' && InsertSupportingCheckedDetail[i].FORMATTEDDOCNUMBER != null ? InsertSupportingCheckedDetail[i].FORMATTEDDOCNUMBER : InsertSupportingCheckedDetail[i].DOCUMENTNUMBER;
+      InsertRefCheckItemsDetails.Notes = InsertSupportingCheckedDetail[i].NOTES;
+      InsertRefCheckItemsDetails.Source = InsertSupportingCheckedDetail[i].SOURCENAME !== '' ? InsertSupportingCheckedDetail[i].SOURCENAME : InsertSupportingCheckedDetail[i].SOURCE;
+      InsertRefCheckItemsDetails.DocumentTitle = InsertSupportingCheckedDetail[i].TITLE !== '' && InsertSupportingCheckedDetail[i].TITLE !== null ? InsertSupportingCheckedDetail[i].TITLE : InsertSupportingCheckedDetail[i].DOCUMENTTITLE;
+      InsertRefCheckItemsDetails.ProjectNumber = InsertSupportingCheckedDetail[i].PROJECTNUMBER;
+      InsertRefCheckItemsDetails.SelectedSource = getSelectedSourceName(selectedValue);
+      InsertRefCheckItemsDetails.RefDocId = InsertSupportingCheckedDetail[i].RefDocId;
+      InsertRefCheckItemsDetails.RevLevel = InsertSupportingCheckedDetail[i].REVLEVEL;
+      InsertRefCheckItemsDetails.RptId = reportIdParam;
+      InsertRefCheckItemsDetails.EASAStatusId = Number((getStatusList.find(item => item.Status === InsertSupportingCheckedDetail[i].STATUS)?.StatusId) ?? -1); 
+      InsertRefCheckItemsDetails.ItemStatus = OperationType.ADD;
+      InsertRefCheckItemsDetails.RefSequence = handleRefSequenced(supportingDataNumberCount);
+      InsertRefCheckItemsDetails.TableCode = props && props.refTableCode;
+      InsertRefCheckItemsDetails.CommentRedFlag = "";
+      InsertRefCheckItemsDetails.SupportingDataGridRowCommentCnt = 0;
+      InsertRefCheckItemsDetails.SupportingDataGridRowUnResolvedCommentCnt = 0;
+      InsertRefCheckItemsDetails.ItarFlag = InsertSupportingCheckedDetail[i].ITARFLAG ? "Y" : "N";
+      InsertRefCheckItemsDetails.Purpose = InsertSupportingCheckedDetail[i].PURPOSE;
+      InsertRefCheckItemsDetails.SourceId = selectedValue;
+      InsertRefCheckItems.push(InsertRefCheckItemsDetails);
+      supportingDataNumberCount++;
+    };
+    SuppInsertPopupDataService.UpsertReferenceDataByRowId(InsertRefCheckItems).then((res) => {
+      let nonUniqueDocuments: ConfigRefDocDetails[] = res?.data?.filter(x => x.Error_Log?.SuccessFlag == false);
+      if (nonUniqueDocuments == null || nonUniqueDocuments.length == 0) {
+        props.onCloseSupportingModelPopup(true);
+        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "References saved successfully." }));
+        InsertRefCheckItems = [];
+        InsertSupportingCheckedDetail = [];
+      }
+      else {
+        for (let item of nonUniqueDocuments) {
+          // Check if Error_Log and ErrorMsg are defined
+          if (item.Error_Log && item.Error_Log.ErrorMsg) {
+            // Split the ErrorMsg by commas to get individual document numbers
+            let documentNumbers = item.Error_Log.ErrorMsg.split(',').map(num => num.trim().toLowerCase());
+
+            for (let docNum of documentNumbers) {
+              let docuNumElem = document.getElementsByClassName(`othersDocNum-${docNum}`);
+              for (let i = 0; i < docuNumElem.length; i++) {
+                docuNumElem[i].setAttribute("style", "border: 1px solid red;");
+              }
+            }
+          }
+        }
+        dispatch(showSnackbar({
+          snackbarOpen: true,
+          snackbarType: "error",
+          snackbarMessage: "Document Number should be unique."
+        }));
+        InsertRefCheckItems = [];
+        return;
+
+      }
+    }).catch(error => {
+      console.error('Error fetching data:', error);
+    });
+
+  };
+
+  const InsertSupportingDataInManageTab = () => {
+    //Apply clear error color logic
+    let docuNumElem = document.querySelectorAll('[class*=othersDocNum]');
+    for (let i = 0; i < docuNumElem.length; i++) {
+      docuNumElem[i].setAttribute("style", "border: 1px solid rgba(0, 0, 0, 0.23);");
+    };
+    if (InsertSupportingCheckedDetail.length > 1) {
+      dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Please select/ insert single record while update." }));
+      return;
+    } else {
+      if (InsertSupportingCheckedDetail[0].DOCUMENTNUMBER == "" || InsertSupportingCheckedDetail[0].REVLEVEL == "") {
+        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Please fill the required fields Document Number and Rev level." }));
+        return;
+      } else {
+        let duplicateArr = selectedItem.filter(d => d.DocumentNumber === InsertSupportingCheckedDetail[0].DOCUMENTNUMBER && d.RefDocId !== InsertSupportingCheckedDetail[0].RefDocId)
+        if (duplicateArr && duplicateArr.length > 0) {
+          let docuNumElem = document.getElementsByClassName(`othersDocNum-${InsertSupportingCheckedDetail[0].DOCUMENTNUMBER.toLowerCase().trim()}`);
+          for (let i = 0; i < docuNumElem.length; i++) {
+            docuNumElem[i].setAttribute("style", "border: 1px solid red;");
+          }
+          dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Document Number should be unique." }));
+          return;
+        } else {
+          let InsertSupCheckItemsDetails: SupportingDetails = {} as SupportingDetails;
+          InsertSupCheckItemsDetails.DocumentNumber = InsertSupportingCheckedDetail[0].FORMATTEDDOCNUMBER !== '' && InsertSupportingCheckedDetail[0].FORMATTEDDOCNUMBER != null ? InsertSupportingCheckedDetail[0].FORMATTEDDOCNUMBER : InsertSupportingCheckedDetail[0].DOCUMENTNUMBER;
+          InsertSupCheckItemsDetails.RevLevel = InsertSupportingCheckedDetail[0].REVLEVEL;
+          InsertSupCheckItemsDetails.Source = InsertSupportingCheckedDetail[0].SOURCENAME !== '' ? InsertSupportingCheckedDetail[0].SOURCENAME : InsertSupportingCheckedDetail[0].SOURCE;
+          InsertSupCheckItemsDetails.Notes = InsertSupportingCheckedDetail[0].NOTES;
+          InsertSupCheckItemsDetails.DocumentTitle = InsertSupportingCheckedDetail[0].TITLE !== '' && InsertSupportingCheckedDetail[0].TITLE !== null ? InsertSupportingCheckedDetail[0].TITLE : InsertSupportingCheckedDetail[0].DOCUMENTTITLE;
+          props.onCloseSupModelPopup(true, InsertSupCheckItemsDetails);
+          InsertSupportingCheckedDetail = [];
+        }
+      }
+    }
+  };
+
+  const handleDocumentsPopup = (details) => {
+    const seachAttachmentDetails: DocAttachmentDetails = {
+      DocumnetId: details.DOCUMENTID.toString(),
+      DataSource: details.SOURCENAME,
+      DocumentNumber: details.DOCUMENTNUMBER,
+      SearchDetails: searchId,
+      SourceId: selectedValue
+    };
+    SuppInsertPopupDataService.GetDocAttachmentDetailsbyDocId(seachAttachmentDetails).then((response) => {
+      response.data.forEach(item => {
+        if (item.CreationDateStr) {
+          item.CreationDateStr = formatDate(new Date(`${item.CreationDateStr}`));
+        }
+      });
+      setPopUpHeader(`${details.SOURCENAME} Attachment(s)`);
+      setAttachmentModal(true);
+      setAttachmentData(response.data);
+      setAttachDocData(process(response.data, attachDocdataState));
+    })
+  }
+
+  const closeEspecAttachmentModal = () => {
+    setAttachmentModal(false);
+    setAttachmentData([]);
+    setAttachDocDataState({});
+  }
+
+  const onClickUrl = (url) => {
+    window.open(url, '_blank');
+  }
+
+  const isDateField = (val: any): boolean => {
+    if (val instanceof Date) {
+      return !Number.isNaN(val.getTime());
+    }
+    if (typeof val !== 'string') return false;
+    const isoRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+\-]\d{2}:\d{2})?$/;
+    const rfcLike = /^[A-Za-z]{3}\s[A-Za-z]{3}\s\d{1,2}\s\d{4}/;
+    if (!isoRegex.test(val) && !rfcLike.test(val)) {
+      return false;
+    }
+    const ms = Date.parse(val);
+    return !Number.isNaN(ms);
+  };
+
+  const datastatechange = (event: GridDataStateChangeEvent) => {
+    event.dataState?.filter?.filters?.forEach((group: any) => {
+      group?.filters?.forEach((item: any) => {
+        if (item && item.value != null && isDateField(item.value)) {
+          item.value = new Date(item.value);
+        }
+      });
+    });
+  
+    setDataState(event.dataState);
+  };
+
+  const fetchData = async (dataState) => {
+    const sortVal = {
+      field: dataState?.sort?.length ? dataState.sort[0].field : null,
+      dir: dataState?.sort?.length ? dataState.sort[0].dir : null,
+    }
+
+    let filterVal: ParameterObject[] = [];
+    let filterObjects: FilterParam[] = [];
+
+    if (dataState?.filter?.length) {
+      if (dataState.filter.filters?.length) {
+        for (let i = 0; i < dataState.filter.filters.length; i++) {
+
+          if (dataState.filter.filters[i].filters.length != 0) {
+            filterVal = [];
+            for (let j = 0; j < dataState.filter.filters[i].filters.length; j++) {
+              const parameterObject: ParameterObject = {
+                field: dataState.filter.filters[i].filters[j].field,
+                operator: dataState.filter.filters[i].filters[j].operator,
+                value: dataState.filter.filters[i].filters[j].value
+              };
+
+              filterVal.push(parameterObject);
+            }
+
+            const filterObj: FilterParam = {
+              filterObject: filterVal,
+              logic: dataState.filter.filters[i].logic
+            };
+            filterObjects.push(filterObj);
+          }
+        }
+      }
+    }
+    getSearchData(searchId, selectedValue, dataState, getPurposeList, selectedItem);
+  }
+
+  const handleGridHeight = (mainHeight) => {
+    return `${mainHeight - 240}px`
+  };
+
+  const MyCustomCell = (props) => {
+    const textContent = commonFunction.removeHTMLTags(props.dataItem.GRREASON);
+    return (
+      <td style={{ verticalAlign: "top" }} title={textContent}>
+        <div style={{ paddingTop: '7px' }}>
+          <ReactSanitizedHtml html={props.dataItem.GRREASON} />
+        </div>
+      </td>
+    );
+  };
+
+  const attachgriddatastatechange = (event: GridDataStateChangeEvent) => {
+    setAttachDocDataState(event.dataState);
+  };
+
+  const getSelectedSourceName = (value: number) => {
+    if (value) {
+      const getSelectedSource = getRefDataSource.filter(list => list.SourceId == value);
+      if (getSelectedSource.length > 0) {
+        return getSelectedSource[0].SourceName;
+      } else {
+        return "";
+      }
+    } else {
+      return "";
+    }
+  };
+
+  return (
+    <>
+      <Modal
+        className="uploadSupportingInsertModal"
+        open={props.isOpen}
+        aria-labelledby="modal-modal-title"
+        aria-describedby="modal-modal-description"
+        sx={{ zIndex: "1" }}
+      >
+        <Box sx={{ ...modalStyle, height: dynamicScreenSize.height, width: dynamicScreenSize.width }}>
+          <div className="modal-heading">
+            <span className="titleSection">
+              <TableViewOutlinedIcon className="commentIcon supportIcon"></TableViewOutlinedIcon>
+              <Typography variant="h5" gutterBottom className="titleBody">
+                {isOpenedFromDocumentNumber ? 'Edit ' : 'Insert '} {props && props?.refGridTitle}
+              </Typography>
+            </span>
+            <CloseIcon
+              className="closeIcon"
+              onClick={() => { props.IsManageSupTab ? props.onCloseSupModelPopup(false, null) : props.onCloseSupportingModelPopup(false) }}
+            />
+          </div>
+          <Typography variant="subtitle1" className="subHeading" gutterBottom>
+            Select a document source and enter the refrence number to load the
+            data into the table, then select the document you want to insert as
+            Supporting Data.
+          </Typography>
+          <Typography id="modal-modal-btn" sx={{ mt: 2 }} fontSize="small" style={{ padding: '0px' }}>
+            <div className="inputSection">
+              <FormControl size="small">
+                <label className="dropLabel">Source</label>
+                <Select sx={{ minWidth: 220, height: "32px" }} onChange={handleSelectedValue} value={selectedValue ? selectedValue : ''}>
+                  {getRefDataSource.map((option, index) => (
+                    <MenuItem key={index} value={option.SourceId}>{option.SourceName}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {showTools == true ? (
+                <>
+                  <span className="formCombo" style={{ gap: "5px" }}>
+                    <label className="formLabel">Reference Number</label>
+                    {isTemplate == "DQN" ? (
+                      getSelectedSourceName(selectedValue) === ReferenceDataSourceName.DC ? (
+                        <TextField
+                          id="outlined-size-small"
+                          name="DOCUMENT_NAME"
+                          size="small"
+                          value={searchId}
+                          onChange={(e) => setSearchId(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && searchId !== "") {
+                              handleSearchTextChange(searchId, selectedValue);
+                            }
+                          }}
+                          style={{ flexGrow: 1 }}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">{placeholder}</InputAdornment>
+                            ),
+                          }}
+                        />
+                      ) : (
+                        <TextField
+                          id="outlined-size-small"
+                          name="DOCUMENT_NAME"
+                          size="small"
+                          value={ddtlSearchId}
+                          onChange={(e) => setddtlSearchId(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && ddtlSearchId !== "") {
+                              handleSearchTextChange(ddtlSearchId, selectedValue);
+                            }
+                          }}
+                          style={{ flexGrow: 1 }}
+                          InputProps={{
+                            startAdornment: (
+                              <InputAdornment position="start">{placeholder}</InputAdornment>
+                            ),
+                          }}
+                        />
+                      )
+                    ) : (
+                      <TextField
+                        id="outlined-size-small"
+                        name="DOCUMENT_NAME"
+                        size="small"
+                        value={searchId}
+                        onChange={(e) => setSearchId(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && searchId !== "") {
+                            handleSearchTextChange(searchId, selectedValue);
+                          }
+                        }}
+                        style={{ flexGrow: 1 }}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">{placeholder}</InputAdornment>
+                          ),
+                        }}
+                      />
+                    )}
+                  </span>
+                  <span className="buttonInsert">
+                    <Button
+                      className="searchButtonSIPD"
+                      variant="contained"
+                      size="small"
+                      onClick={() =>
+                        handleSearchTextChange(
+                          isTemplate === "DQN" && getSelectedSourceName(selectedValue) !== ReferenceDataSourceName.DC ? ddtlSearchId : searchId,
+                          selectedValue
+                        )
+                      }
+                      disabled={searchId === "" && ddtlSearchId === ""}
+                      sx={{ padding: "8px 10px" }}
+                    >
+                      Search
+                    </Button>
+                  </span>
+                </>
+              ) : (
+                <span className="buttonInsert">
+                  <Button
+                    className="searchButtonSIPD"
+                    variant="contained"
+                    size="small"
+                    onClick={() => InsertOtherdata(props.existingData)}
+                    disabled={isButtonDisabled}
+                  >
+                    Add New
+                  </Button>
+                </span>
+              )}
+            </div>
+
+            {gridConfig && gridConfig.length > 0 ? (
+              <AnyGrid
+                editField="inEdit"
+                id="kgrid-oss-pmdb-SuppInsertlookup"
+                ref={gridRef}
+                data={process(getData, {sort: dataState.sort,filter: dataState.filter}).data}
+                style={{
+                  height: handleGridHeight(dynamicScreenSize.height),
+                  width: "100%"
+                }}
+                {...dataState}
+                onDataStateChange={datastatechange}
+                dataItemKey={DATA_ITEM_KEY}
+                selectedField={SELECTED_FIELD}
+                resizable={true}
+                sortable={sortingValue}
+                onItemChange={itemChange}
+                columnMenuIcon={filterIcon}
+              >
+                {getSelectedSourceName(selectedValue) === "Others" ? (
+                  <GridColumn
+                    field={SELECTED_FIELD}
+                    width="45px"
+                    cells={{
+                      data: props => (
+                        <td>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              className="deleteClassIcon"
+                              style={{ padding: 0, margin: 0, background: 'none', border: 'none', boxShadow: 'none' }}
+                              onClick={(e) => deleteOthersGridData(e, props.dataItem)}
+                              disabled={isButtonDisabled}
+                            >
+                              <CloseIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </td>
+                      )
+                    }}
+                  />
+                ) : (
+                  <GridColumn
+                    field={SELECTED_FIELD}
+                    width="45px"
+                    cells={{
+                      data: props => {
+                        const isChecked = selectedState[idGetter(props.dataItem)];
+                        return (
+                          <td style={{ verticalAlign: "top" }}>
+                            <div style={{ paddingTop: '7px', display: 'flex', justifyContent: 'center' }}>
+                              <input
+                                type="checkbox"
+                                disabled={props.dataItem.Disable}
+                                checked={!!isChecked}
+                                title={props.dataItem.Disable ? `This ${selectedValue} data already exist` : ''}
+                                onChange={(e) => handleCheckboxChange(e, props.dataItem)}
+                              />
+                            </div>
+                          </td>
+                        );
+                      }
+                    }}
+                  />
+                )}
+
+                {gridConfig.map((col, index) => {
+                  if (getSelectedSourceName(selectedValue) === "Others") {
+                    
+
+                    if (col.field === "STATUS" && isTemplate === "DDTL") {
+                        return (
+                            <GridColumn
+                                key={index}
+                                {...columnProps(col.field)}
+                                field={col.field}
+                                width={col.width}
+                                title={col.title}
+                                cells={{ data: (props: any) => CustomStatusDropDown(props, getStatusList) }}
+                            />
+                        )
+                    }
+                    if (col.field === "PURPOSE" && isTemplate === "DDTL") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          width={col.width}
+                          title={col.title}
+                          cells={{ data: (props: any) => CustomDropDown(props, getPurposeList) }}
+                        />
+                      )
+                    }
+                    
+                    
+                    return (<GridColumn key={index} {...columnProps(col.field) as any} field={col.field} title={col.title}
+                      width={col.width}
+                      cells={{ data: CustomInputText }}
+                    />
+                    )
+                  } else {
+
+                    if (col.type === "Date") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field) as any}
+                          field={col.field}
+                          title={col.title}
+                          width={col.width}
+                          filter="date"
+                          filterCell={(props) => (
+                            <DatePicker
+                              {...props}
+                              value={props.value ? new Date(`${props.value}`) : null}
+                              format="MM-dd-yyyy"
+                              onChange={(event) => {
+                                props.onChange({
+                                  value: event.target.value instanceof Date ? event.target.value : null,
+                                  operator: "eq",
+                                  syntheticEvent: event.nativeEvent,
+                                });
+                              }}
+                            />
+                          )}
+                          cell={(props) => {
+                            const fieldName = col.field;
+                            const raw = props.dataItem?.[fieldName];
+                            const dateValue = raw ? new Date(raw) : null;
+                            const formatted = dateValue
+                              ? dateValue.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : "";
+                            return (
+                              <td style={{ verticalAlign: "top" }} title={formatted}>
+                                <div style={{ paddingTop: '7px' }}>
+                                  {formatted}
+                                </div>
+                              </td>
+                            );
+                          }}
+                        />
+                      );
+                    }
+                    if (col.field === "DOCUMENTNUMBER") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          title={col.title}
+                          width={col.width}
+                          cells={{
+                            data: props => (
+                              (
+                                <td className='docNumberTD' title={props.dataItem.DOCUMENTNUMBER}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                                    <span style={{ minWidth: '10px', textOverflow: "ellipsis", overflow: "hidden", marginBottom: props.dataItem.ATTACHMENTCOUNT > 0 ? '15px' : '0', paddingTop: '7px' }}> {props.dataItem.DOCUMENTNUMBER} </span>
+                                    {props.dataItem.ATTACHMENTCOUNT > 0 &&
+                                      <span style={{ display: 'flex', alignItems: 'center', paddingTop: "15px" }}>
+                                        <Badge badgeContent={props.dataItem.ATTACHMENTCOUNT} color="primary" className="badgeSupportInsert">
+                                          <AttachFileIcon className='rightIcon' color='disabled' style={{ color: '#737373', cursor: 'pointer', fontSize: "24px" }}
+                                            onClick={(e) => { handleDocumentsPopup(props.dataItem) }}
+                                          />
+                                        </Badge>
+                                      </span>
+                                    }
+                                  </div>
+                                </td>
+                              )
+                            )
+                          }}
+                        />
+                      )
+                    }
+                    if (col.field === "GRREASON") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          title={col.title}
+                          width={col.width}
+                          cells={{ data: (cellProps) => <MyCustomCell {...cellProps} /> }}
+                        />
+                      )
+                    }
+                    if (col.field === "PMDBPROJECTTITLE") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          title={col.title}
+                          width={col.width}
+                          cells={{
+                            data: props => {
+                              if (!props.dataItem) {
+                                return <td style={{ verticalAlign: "top" }} />;
+                              }
+                              const titleText = `${props.dataItem.PMDBPROJECTTITLE ?? ""}${props.dataItem?.DOCUMENTCONTENT ? `\n${props.dataItem.DOCUMENTCONTENT}` : ""}`;
+                              return (
+                                <td
+                                  style={{ verticalAlign: "top", whiteSpace: "normal", wordWrap: "break-word" }}
+                                  title={titleText}
+                                >
+                                  <div style={{ paddingTop: '7px' }}>
+                                    <div>{props.dataItem.PMDBPROJECTTITLE}</div>
+                                    {props.dataItem?.DOCUMENTCONTENT ? (
+                                      <span style={{ fontStyle: "italic", color: "#008000", marginTop: "5px", display: "inline-block" }}>
+                                        {props.dataItem.DOCUMENTCONTENT}
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </td>
+                              );
+                            }
+                          }}
+                        />
+                      );
+                    }
+                    if (col.field === "REVLEVEL") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          width={col.width}
+                          title={col.title}
+                          cells={{
+                            data: props => <td style={{ verticalAlign: "top", textAlign: "center" }} title={props.dataItem.REVLEVEL}>
+                              <div style={{ paddingTop: '7px' }}>{props.dataItem.REVLEVEL}</div>
+                            </td>
+                          }}
+                        />
+                      )
+                    }
+                    if (col.field === "STATUS") {
+                        return (
+                            <GridColumn
+                                key={index}
+                                {...columnProps(col.field)}
+                                field={col.field}
+                                width={col.width}
+                                title={col.title}
+                                cells={{ data: (props: any) => CustomStatusDropDown(props, getStatusList) }}
+                            />
+                        )
+                    }
+                    if (col.field === "PURPOSE") {
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          width={col.width}
+                          title={col.title}
+                          cells={{ data: (props: any) => CustomDropDown(props, getPurposeList) }}
+                        />
+                      )
+                    }
+                    return (
+                      <GridColumn
+                        key={index}
+                        {...columnProps(col.field)}
+                        field={col.field}
+                        title={col.title}
+                        width={col.width}
+                      />
+                    );
+                  }
+                })}
+              </AnyGrid>
+            ) : <div style={{ height: "300px", width: "100%" }}></div>}
+          </Typography>
+
+          <Typography id="modal-modal-btn" className='button-Insert' sx={{ mt: 2 }} textAlign={"end"} style={{ padding: '13px 0 0 0' }}>
+            <Button
+              className="button-style-create-new"
+              variant="contained"
+              size='small'
+              onClick={() => { props.IsManageSupTab ? InsertSupportingDataInManageTab() : onInsertSupportingCheckedItemClick() }}
+              disabled={selectedSupProject.length == 0 ? true : false}
+              style={{ fontSize: '14px', backgroundColor: "#0033A1", color: 'white', textTransform: 'capitalize', height: '32px', padding: '8px 10px' }}
+            >
+              Insert
+            </Button>
+          </Typography>
+        </Box>
+      </Modal>
+
+      {/* ----------------------- Attachment modal --------------------------- */}
+      <Modal
+        open={attachmentModal}
+        onClose={closeEspecAttachmentModal}
+        aria-labelledby="nested-modal-title"
+        aria-describedby="nested-modal-description"
+        sx={{ zIndex: "1" }}
+      >
+        <Box sx={{ ...modalStyle, width: "800", padding: "24px" }}>
+          <div className="modal-heading" style={{ display: "flex", justifyContent: "space-between", marginLeft: '-6px' }}>
+            <span className="titleSection">
+              <Typography variant="h5" gutterBottom className="com-att-titleBody" style={{ display: "flex" }} >
+                <AttachFileIcon style={{ marginRight: "4px", marginTop: "4px" }} />
+                <span style={{ margin: "0", height: "24px" }}>
+                  {popUpHeader}
+                </span>
+              </Typography>
+            </span>
+            <CloseIcon
+              style={{ cursor: "pointer" }}
+              className="com-att-closeIcon"
+              onClick={() => closeEspecAttachmentModal()}
+            />
+          </div>
+          <Typography id="com-att-modal-modal-btn" style={{ padding: '0px' }} className='com-att-cmdAttachmentGrid' variant="h6" component="h2">
+            <Grid
+              id="com-att-popupGridStyling"
+              data={getAttachDocData}
+              onDataStateChange={attachgriddatastatechange}
+              {...attachDocdataState}
+              sortable={true}
+              columnMenuIcon={filterIcon}
+              style={{
+                height: attachmentData.length == 0 ? "150px" : "250px",
+                width: "100%",
+                marginTop: '32px'
+              }}
+            >
+              <GridColumn {...attachColumnProps('Filename') as any} field="Filename" title="File Name" cells={{
+                data: (props) => (
+                  <td title={props.dataItem.Filename}>
+                    <Button
+                      variant={"text"}
+                      sx={{
+                        fontSize: "14px",
+                        padding: 0,
+                        justifyContent: "flex-start",
+                        color: '#0078B8',
+                        textOverflow: "ellipsis",
+                        overflow: "hidden",
+                        marginLeft: '12px',
+                        textTransform: 'none',
+                        "&:hover": {
+                          backgroundColor: "transparent",
+                        },
+                      }}
+                      onClick={() => onClickUrl(props.dataItem.Url)}
+                    >
+                      {props.dataItem.Filename}
+                    </Button>
+                  </td>
+                )
+              }} />
+              <GridColumn {...attachColumnProps('CreatedByName') as any} field="CreatedByName" title="Created By" width="200px" cell={(props) => (
+                <td title={props.dataItem.CreatedByName} className="createdBy">
+                  <Button
+                    variant={"text"}
+                    sx={{
+                      fontSize: "14px",
+                      padding: 0,
+                      justifyContent: "flex-start",
+                      // color:'#0078B8',
+                      marginLeft: '12px',
+                      textTransform: 'none',
+                      "&:hover": {
+                        backgroundColor: "transparent", // Set the background color to transparent on hover
+                      },
+                    }}
+                  >
+                    {props.dataItem.CreatedByName}
+                  </Button>
+                </td>
+              )} />
+              <GridColumn {...attachColumnProps('CreationDateStr') as any} field="CreationDateStr" title="Creation Date" width="150px" filter="date"
+                filterCell={(props) => (
+                  <DatePicker
+                    {...props}
+                    value={props.value ? new Date(`${props.value}`) : null}
+                    format="MM-dd-yyyy" // Specify the format for the date picker
+                    onChange={(event) => {
+                      props.onChange({
+                        value: event.target.value instanceof Date ? event.target.value : null,
+                        operator: 'eq', // You can adjust the operator as needed
+                        syntheticEvent: event.nativeEvent,
+                      });
+                    }}
+                  />
+                )}
+                cell={(props) => {
+                  const modificationDate = props.dataItem.CreationDateStr ? new Date(props.dataItem.CreationDateStr) : null;
+                  return (
+                    <td title={modificationDate ? modificationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}>
+                      <Button
+                        variant={"text"}
+                        sx={{
+                          fontSize: "14px",
+                          padding: 0,
+                          justifyContent: "flex-start",
+                          marginLeft: '12px',
+                          textTransform: 'none',
+                          color: "#253746",
+                          "&:hover": {
+                            backgroundColor: "transparent", // Set the background color to transparent on hover
+                          },
+                        }}
+                      >
+                        {modificationDate && modificationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                      </Button>
+                    </td>
+                  )
+                }} />
+            </Grid>
+          </Typography>
+          <Typography className="com-att-close-btn" id="com-att-modal-modal-btn" sx={{ mt: 2 }} textAlign={"end"}>
+            <Button
+              className="com-att-closeIconCmdAttachment"
+              variant="contained"
+              size='small'
+              onClick={closeEspecAttachmentModal}
+              style={{ fontSize: '14px', textTransform: "capitalize" }}
+            >
+              Close
+            </Button>
+          </Typography>
+        </Box>
+      </Modal>
+    </>
+  );
+};
+
+export default SupportingInsertPopupData;
