@@ -653,13 +653,6 @@ const SupportingInsertPopupData = (props) => {
     const newSelectedState = { ...selectedState, [idGetter(newdata)]: true };
     setSelectedState(newSelectedState);
     setSelectedSupState(newSelectedState);
-    if(String(isTemplate) === "DDTL")
-    {
-      getSearchData(null,"9", dataState);
-    }
-    else{
-      getSearchData(null,"3", dataState);
-    }
     
   }
 
@@ -793,7 +786,7 @@ const SupportingInsertPopupData = (props) => {
       InsertRefCheckItemsDetails.SupportingDataGridRowUnResolvedCommentCnt = 0;
       InsertRefCheckItemsDetails.ItarFlag = InsertSupportingCheckedDetail[i].ITARFLAG ? "Y" : "N";
       InsertRefCheckItemsDetails.Purpose = InsertSupportingCheckedDetail[i].PURPOSE;
-      InsertRefCheckItemsDetails.SourceId = selectedValue;
+     InsertRefCheckItemsDetails.SourceId = getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
       InsertRefCheckItems.push(InsertRefCheckItemsDetails);
       supportingDataNumberCount++;
     };
