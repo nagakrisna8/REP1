@@ -647,7 +647,7 @@ const SupportingInsertPopupData = (props) => {
       STATUS: ""
     };
     setData(prev => [...prev, newdata]);
-    const dataSource = getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
+    const dataSource = selectedValue;
     getSearchData(
       null,
       dataSource,
@@ -792,7 +792,7 @@ const SupportingInsertPopupData = (props) => {
       InsertRefCheckItemsDetails.SupportingDataGridRowUnResolvedCommentCnt = 0;
       InsertRefCheckItemsDetails.ItarFlag = InsertSupportingCheckedDetail[i].ITARFLAG ? "Y" : "N";
       InsertRefCheckItemsDetails.Purpose = InsertSupportingCheckedDetail[i].PURPOSE;
-      InsertRefCheckItemsDetails.SourceId = getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
+      InsertRefCheckItemsDetails.SourceId = selectedValue;
       InsertRefCheckItems.push(InsertRefCheckItemsDetails);
       supportingDataNumberCount++;
     };
