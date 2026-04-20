@@ -157,47 +157,47 @@ const CustomDropDown = (props, getPurposeList: GetRegulationPurposeData[]) => {
 };
 
 const CustomStatusDropDown = (props, getStatusList: GetStatus[]) => {
-    const { dataItem } = props;
-    const field = props.field || '';
-    const [inputValue, setInputValue] = useState(dataItem[field]);
-    const handleMultiChange = (event) => {
-        const newVal = event.target.value;
-        setInputValue(newVal);
-        if (props.onChange) {
-            let tempNewData = props.dataItem;
-            props.onChange({
-                dataIndex: 0,
-                dataItem: tempNewData,
-                field: props.field,
-                syntheticEvent: event,
-                value: newVal ? newVal : "",
-            });
-        }
-    };
+  const { dataItem } = props;
+  const field = props.field || '';
+  const [inputValue, setInputValue] = useState(dataItem[field]);
+  const handleMultiChange = (event) => {
+    const newVal = event.target.value;
+    setInputValue(newVal);
+    if (props.onChange) {
+      let tempNewData = props.dataItem;
+      props.onChange({
+        dataIndex: 0,
+        dataItem: tempNewData,
+        field: props.field,
+        syntheticEvent: event,
+        value: newVal ? newVal : "",
+      });
+    }
+  };
 
-    return (
-        <td className="purpose-dropdown">
-            <Select
-                className="supp-inputSelect-Box"
-                labelId="suppporting-simple-select-label"
-                value={inputValue}
-                title={inputValue}
-                sx={{ fontSize: '14px', backgroundColor: '#FFFFFF', color: '#253746', fontWeight: "normal", display: 'block' }}
-                input={<OutlinedInput placeholder="Model" />}
-                onChange={(event) => handleMultiChange(event)}
-                disabled={dataItem.Disable}
-                renderValue={(selected) => selected.length == 0 ? "No option selected" : inputValue}
-                placeholder='No Options Selected'
-            >
-                {getStatusList &&
-                    getStatusList?.map((option) => (
-                        <MenuItem key={String(option.StatusId)} value={option.Status} style={{ height: "32px" }}>
-                            <ListItemText primary={option.Status} primaryTypographyProps={{ fontSize: '14px', color: '#253746', fontWeight: "normal" }} />
-                        </MenuItem>
-                    ))}
-            </Select>
-        </td>
-    );
+  return (
+    <td className="purpose-dropdown">
+      <Select
+        className="supp-inputSelect-Box"
+        labelId="suppporting-simple-select-label"
+        value={inputValue}
+        title={inputValue}
+        sx={{ fontSize: '14px', backgroundColor: '#FFFFFF', color: '#253746', fontWeight: "normal", display: 'block' }}
+        input={<OutlinedInput placeholder="Model" />}
+        onChange={(event) => handleMultiChange(event)}
+        disabled={dataItem.Disable}
+        renderValue={(selected) => selected.length == 0 ? "No option selected" : inputValue}
+        placeholder='No Options Selected'
+      >
+        {getStatusList &&
+          getStatusList?.map((option) => (
+            <MenuItem key={String(option.StatusId)} value={option.Status} style={{ height: "32px" }}>
+              <ListItemText primary={option.Status} primaryTypographyProps={{ fontSize: '14px', color: '#253746', fontWeight: "normal" }} />
+            </MenuItem>
+          ))}
+      </Select>
+    </td>
+  );
 };
 
 const SupportingInsertPopupData = (props) => {
@@ -295,7 +295,7 @@ const SupportingInsertPopupData = (props) => {
       TableCode: props && props.refTableCode,
       ReqCompId: 0
     } as ConfigRefDtl;
-      const [refDataResponse, configRefDataResult, regPurposeData, easaStatusData] = await Promise.all([
+    const [refDataResponse, configRefDataResult, regPurposeData, easaStatusData] = await Promise.all([
       SuppInsertPopupDataService.getReferenceDataSource(props.configRefSourceId),
       ReferenceDataGridService.getReferenceDocumentDetails(refDetails),
       SuppInsertPopupDataService.GetRegulationPurposeMasterData(),
@@ -305,7 +305,7 @@ const SupportingInsertPopupData = (props) => {
       setPurposeList(regPurposeData.data);
     };
     if (easaStatusData && easaStatusData.data) {
-        setStatusList(easaStatusData.data);
+      setStatusList(easaStatusData.data);
     }
     if (configRefDataResult && configRefDataResult.data && configRefDataResult.data?.RefDetailsList) {
       setRefGridCount(configRefDataResult.data.RefDetailsList.length);
@@ -314,18 +314,18 @@ const SupportingInsertPopupData = (props) => {
     if (refDataResponse && refDataResponse.data) {
       setRefDataSource(refDataResponse.data);
       if (new CommonFunction().IsEASAReport()) {
-        let getDCSourceIndex = ddtlSearchId?.trim().length > 0 ? 
-        refDataResponse.data.findIndex((source) => source.SourceName === ReferenceDataSourceName.DDTL) :
-        refDataResponse.data.findIndex((source) => source.SourceName === ReferenceDataSourceName.DC);
+        let getDCSourceIndex = ddtlSearchId?.trim().length > 0 ?
+          refDataResponse.data.findIndex((source) => source.SourceName === ReferenceDataSourceName.DDTL) :
+          refDataResponse.data.findIndex((source) => source.SourceName === ReferenceDataSourceName.DC);
         const checkIsDCPresent = refDataResponse.data.filter(list => list.SourceId == 6);
         if (checkIsDCPresent.length > 0) {
           setSelectedValue(checkIsDCPresent[0].SourceId);
-          searchId?.length > 0 ? getSearchData(searchId, checkIsDCPresent[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : 
-           getSearchData(0, checkIsDCPresent[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) ;
+          searchId?.length > 0 ? getSearchData(searchId, checkIsDCPresent[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) :
+            getSearchData(0, checkIsDCPresent[0].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) ;
         } else {
           setSelectedValue(refDataResponse.data[getDCSourceIndex].SourceId);
           if (isTemplate === "DQN") {
-           ddtlSearchId?.trim().length > 0 ? getSearchData(ddtlSearchId,refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : getSearchData(searchId, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList)
+            ddtlSearchId?.trim().length > 0 ? getSearchData(ddtlSearchId,refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : getSearchData(searchId, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList)
           }
           else {
             searchId?.length > 0 ? getSearchData(searchId, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList) : getSearchData(0, refDataResponse.data[getDCSourceIndex].SourceId, dataState, regPurposeData.data, configRefDataResult.data.RefDetailsList);
@@ -440,7 +440,11 @@ const SupportingInsertPopupData = (props) => {
         //if (response.data.GridResult.length > 0){
         //setData(process(response.data.GridResult, dataState));
         //}
-        setData(response.data.GridResult || []);
+        setData(prev => {
+          const manualRows = prev.filter(item => item.inEdit);
+          const apiRows = response.data.GridResult || [];
+          return [...apiRows, ...manualRows];
+        });
         setGridConfig(response.data.ColumnData);
         setPlaceholder(response.data.InputPlaceholder);
       }
@@ -641,20 +645,22 @@ const SupportingInsertPopupData = (props) => {
       RefDocId: existingData ? existingData.RefDocId : 0,
       PURPOSE: "",
       STATUS: ""
-    }
-    if (isOpenedFromDocumentNumber) {
-      setData([newdata]);
-    }
-    else {
-      setData([...getData, newdata]);
-    }
-
+    };
+    setData(prev => [...prev, newdata]);
+    const dataSource = getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
+    getSearchData(
+      null,
+      dataSource,
+      dataState,
+      getPurposeList,
+      selectedItem
+    );
     InsertSupportingCheckedDetail.push(newdata);
     const newSelectedState = { ...selectedState, [idGetter(newdata)]: true };
     setSelectedState(newSelectedState);
     setSelectedSupState(newSelectedState);
-    
-  }
+  };
+
 
   const handleSelectedValue = (e) => {
     const inputValue = e.target.value;
@@ -663,8 +669,8 @@ const SupportingInsertPopupData = (props) => {
     setSelectedValue(inputValue);
 
     if (isTemplate === "DQN" || isTemplate === "DDTL") {
-      if (getSelectedSourceName(inputValue) === ReferenceDataSourceName.DC)  
-      {
+      if (getSelectedSourceName(inputValue) === ReferenceDataSourceName.DC) 
+        {
         getSearchData(searchId?.trim().length > 0 ? searchId : 0, inputValue, dataState, getPurposeList, selectedItem);
       }
       if (getSelectedSourceName(inputValue) === ReferenceDataSourceName.DDTL) {
@@ -763,7 +769,7 @@ const SupportingInsertPopupData = (props) => {
 
   const InsertRefCheckItemsData = () => {
     let supportingDataNumberCount: number = refGridCount + 1;
-     console.log("InsertSupportingCheckedDetail == ",InsertSupportingCheckedDetail);
+    console.log("InsertSupportingCheckedDetail == ",InsertSupportingCheckedDetail);
     for (let i = 0; i < InsertSupportingCheckedDetail.length; i++) {
       let InsertRefCheckItemsDetails: ConfigRefDocDetails = {} as ConfigRefDocDetails;
       console.log("InsertSupportingCheckedDetail[i] == ",InsertSupportingCheckedDetail[i]);
@@ -777,7 +783,7 @@ const SupportingInsertPopupData = (props) => {
       InsertRefCheckItemsDetails.RefDocId = InsertSupportingCheckedDetail[i].RefDocId;
       InsertRefCheckItemsDetails.RevLevel = InsertSupportingCheckedDetail[i].REVLEVEL;
       InsertRefCheckItemsDetails.RptId = reportIdParam;
-      InsertRefCheckItemsDetails.EASAStatusId = Number((getStatusList.find(item => item.Status === InsertSupportingCheckedDetail[i].STATUS)?.StatusId) ?? -1); 
+      InsertRefCheckItemsDetails.EASAStatusId = Number((getStatusList.find(item => item.Status === InsertSupportingCheckedDetail[i].STATUS)?.StatusId) ?? -1);
       InsertRefCheckItemsDetails.ItemStatus = OperationType.ADD;
       InsertRefCheckItemsDetails.RefSequence = handleRefSequenced(supportingDataNumberCount);
       InsertRefCheckItemsDetails.TableCode = props && props.refTableCode;
@@ -786,7 +792,7 @@ const SupportingInsertPopupData = (props) => {
       InsertRefCheckItemsDetails.SupportingDataGridRowUnResolvedCommentCnt = 0;
       InsertRefCheckItemsDetails.ItarFlag = InsertSupportingCheckedDetail[i].ITARFLAG ? "Y" : "N";
       InsertRefCheckItemsDetails.Purpose = InsertSupportingCheckedDetail[i].PURPOSE;
-     InsertRefCheckItemsDetails.SourceId = getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
+      InsertRefCheckItemsDetails.SourceId = getSelectedSourceName(selectedValue) === "Others" ? 9 : selectedValue;
       InsertRefCheckItems.push(InsertRefCheckItemsDetails);
       supportingDataNumberCount++;
     };
@@ -917,7 +923,7 @@ const SupportingInsertPopupData = (props) => {
         }
       });
     });
-  
+
     setDataState(event.dataState);
   };
 
@@ -1193,19 +1199,19 @@ const SupportingInsertPopupData = (props) => {
 
                 {gridConfig.map((col, index) => {
                   if (getSelectedSourceName(selectedValue) === "Others") {
-                    
+
 
                     if (col.field === "STATUS" && isTemplate === "DDTL") {
-                        return (
-                            <GridColumn
-                                key={index}
-                                {...columnProps(col.field)}
-                                field={col.field}
-                                width={col.width}
-                                title={col.title}
-                                cells={{ data: (props: any) => CustomStatusDropDown(props, getStatusList) }}
-                            />
-                        )
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          width={col.width}
+                          title={col.title}
+                          cells={{ data: (props: any) => CustomStatusDropDown(props, getStatusList) }}
+                        />
+                      )
                     }
                     if (col.field === "PURPOSE" && isTemplate === "DDTL") {
                       return (
@@ -1219,8 +1225,8 @@ const SupportingInsertPopupData = (props) => {
                         />
                       )
                     }
-                    
-                    
+
+
                     return (<GridColumn key={index} {...columnProps(col.field) as any} field={col.field} title={col.title}
                       width={col.width}
                       cells={{ data: CustomInputText }}
@@ -1362,16 +1368,16 @@ const SupportingInsertPopupData = (props) => {
                       )
                     }
                     if (col.field === "STATUS") {
-                        return (
-                            <GridColumn
-                                key={index}
-                                {...columnProps(col.field)}
-                                field={col.field}
-                                width={col.width}
-                                title={col.title}
-                                cells={{ data: (props: any) => CustomStatusDropDown(props, getStatusList) }}
-                            />
-                        )
+                      return (
+                        <GridColumn
+                          key={index}
+                          {...columnProps(col.field)}
+                          field={col.field}
+                          width={col.width}
+                          title={col.title}
+                          cells={{ data: (props: any) => CustomStatusDropDown(props, getStatusList) }}
+                        />
+                      )
                     }
                     if (col.field === "PURPOSE") {
                       return (
