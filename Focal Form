@@ -1,1169 +1,495 @@
-import { Autocomplete, Badge, Button, Checkbox, FormControl, Grid, IconButton, ListItemText, MenuItem, OutlinedInput, Select, SelectChangeEvent, TextField } from "@mui/material";
-import React, { useState, useEffect, useRef, useMemo, useImperativeHandle } from "react";
-import { ConfigRefDocDetails, ConfigRefDtl, ControlCommentCount, ControlsDtls, FixedTabTitle, GetReasonCodeData, GetRegulationPurposeData, GetStatus, OperationType, RefDocGridDetails, ReferenceDataSourceName, ReportStepId, ReportType, RevisionListDetails, SupportingRowWiseDetails, TagDetails, ToolsEnum } from "../../../../../../../model/Model";
-import SpeakerNotesOutlinedIcon from '@mui/icons-material/SpeakerNotesOutlined';
-import './ManageReferenceData.scss';
-import ReferenceDataGridService from "../ReferenceDataGridService";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { userDefinedConfirm } from "../../../../../../../utils/ConfirmDialog";
-import KendoEditor from "../../../dynamic-tabs/k-editor-wrapper/KendoEditor.component";
-import { htmlToText } from "html-to-text";
-import { showSnackbar } from "../../../../../../core/snackbar/CustomSnackBarSlice";
-import { useDispatch } from "react-redux";
-import ManageReferenceDataService from "./ManageReferenceDataService";
-import CommentHistoryPopup from "../../../dynamic-tabs/comment-history-popup/CommentHistoryPopup";
-import EnvDetail from "../../../../../../../utils/EnvDetail";
-import StorageService from "../../../../../../../utils/StorageService";
-import PubSub from "../../../../../../../utils/PubSub";
-import PubSubEvent from "../../../../../../../utils/PubSubEvent";
-import dynamicTabsService from "../../../dynamic-tabs/DynamicTabsService";
-import AuthorizationService from "../../../../../../core/services/AuthorizationService";
-import SupportingInsertPopupData from "../../../compliance-showing/supporting-insert-popup-data-grid/SupportingInsertPopupData";
-import SuppInsertPopupDataService from "../../../compliance-showing/supporting-insert-popup-data-grid/SuppInsertPopupDataService";
-import { error } from "console";
-import PathConstants from "../../../../../../../routes/PathConstants";
-import ConfigureReferencesService from "../../ConfigureReferencesService";
-import AddRevisionPopupService from "../../../dynamic-tabs/add-revision-popup/AddRevisionPopupService";
-import UserToken from "../../../../../../../utils/UserToken";
-import { fetchStart, fetchSuccess } from '../../../compliance-showing/supporting-data-grid/SupportingDataReferenceContentSlice'
-import CommonFunction from "../../../../../../../utils/CommonFunction";
-
-var configRefDocDetails: RefDocGridDetails[] = [];
-
-interface ConfigRefDropdownData {
-    RefDocId: number;
-    DocumentNumber: string;
-    RevLevel: string;
-    DocumentTitle: string;
-};
-
-const initialBoeingRefGridData = {
-    DocumentNumber: "",
-    DocumentTitle: "",
-    Notes: "",
-    RefSequence: "",
-    RefDocId: 0,
-    RevLevel: "",
-    RptId: 0,
-    Source: "",
-    SupportingProjectidSdtno: "",
-    TableCode: "",
-    BoeingRefGridRowCommentCnt: 0,
-    BoeingRefGridRowUnResolvedCommentCnt: 0,
-    ItemStatus: "",
-}
-
-const initialSelectedDropDownData = {
-    DocumentNumber: "",
-    DocumentTitle: "",
-    RefDocId: 0,
-    RevLevel: "",
-}
-
-const excludeToolbarItemArray = [ToolsEnum.InsertImage, ToolsEnum.renderEquationTool];
-
-const KendoEditorSection = ({ editorKey, getCommentCount, handleOpenHistoryPopup, editorCommentsDtl, reportLevelTagList, refreshAllEditor, openHistoryPopup, handleCloseHistoryPopup, label, columnName, targetContent, content, onChange, reportId, props, tabName, tableCode, saveTabDetails, excludeToolbarItemArray, rowId }) => {
-    let updatedSectionTitle = "Supporting Data Grid" + ", " + targetContent.replace(/([A-Z])/g, ' $1').trim();
-    const comments = editorCommentsDtl.filter(comment => comment.ColumnName === columnName);
-    const commentStatus = comments?.some(comment => comment.CommentStatus === "0") ? "error" : "success";
-
-    return (
-        <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}>
-            <Grid item xs={12} className='grid-item-spacing' style={{ display: 'flex' }}>
-                <Grid item md={12}>
-                    <Grid md={12} style={{ display: 'flex' }}>
-                        <label>{label}</label>
-                    </Grid>
-                    <Grid md={12} style={{ display: 'flex' }}>
-                        <Grid md={11} className="editSupportingContentLeft">
-                            <Grid>
-                                <div className={`editorContentId-${rowId ? rowId : 'default'}`}>
-                                    <KendoEditor
-                                        controlName={columnName}
-                                        selectedRowId={0}
-                                        contentID={0}
-                                        currentTabComments={comments}
-                                        reportLevelTagList={reportLevelTagList}
-                                        IsBadgeIconClick={false}
-                                        IsNonDynamicTab={true}
-                                        IsError={false}
-                                        headerData={props.headerData}
-                                        tools={"PARAGRAPH"}
-                                        content={content}
-                                        key={editorKey}
-                                        onEditorChange={(event) => { onChange && onChange(event, targetContent, `${event.html}`, content) }}
-                                        item={null}
-                                        contentKey={"ParagraphContent"}
-                                        updateTotalCompGridCommentCount={null}
-                                        totalComment={0}
-                                        sendDataToRootParent={null}
-                                        reportId={reportId}
-                                        loadContentCommenttdata={null}
-                                        refreshAllEditor={refreshAllEditor}
-                                        sectionTitle={updatedSectionTitle}
-                                        openHistoryPopup={openHistoryPopup}
-                                        handleCloseHistoryPopup={handleCloseHistoryPopup}
-                                        tabName={tabName}
-                                        tableCode={tableCode}
-                                        saveTabDetails={saveTabDetails}
-                                        excludeToolbarItemArray={excludeToolbarItemArray}
-                                    />
-                                </div>
-                            </Grid>
-                        </Grid>
-                        <Grid item md={1} className="manageSupportingComment">
-                            <Badge id="badge2" anchorOrigin={{ vertical: 'top', horizontal: 'right' }} style={{ color: '#737373' }} badgeContent={getCommentCount(columnName)} color={commentStatus}>
-                                <IconButton onClick={() => handleOpenHistoryPopup(columnName, comments[0]?.ContentID || 0, false)}>
-                                    <SpeakerNotesOutlinedIcon />
-                                </IconButton>
-                            </Badge>
-                        </Grid>
-                    </Grid>
-                </Grid>
-            </Grid>
-        </Grid>
-    )
-};
-
-const ManageReferenceData = React.forwardRef<any, any>((props, ref) => {
-    const userToken = new UserToken();
-    const userBemsId = userToken.getUserBemsId();
-    //const [getRowWiseSupData, setRowWiseSupData] = useState<SupportingRowWiseDetails | null>(null);
-    const [getRowWiseRefData, setRowWiseRefData] = useState<RefDocGridDetails | null>(null);
-    const [selectedDocNumberValue, setSelectedDocNumberValue] = useState<ConfigRefDropdownData | null>(null);
-    const [getConfigDropDownData, setConfigDropdownData] = useState<ConfigRefDropdownData[]>([]);
-    const [getRefDocDetails, setRefDocDetails] = useState<RefDocGridDetails[]>([]);
-    // const [refGridDataLength,setRefGridDataLength] = useState<Number>(0);
-    const [isTabDirty, setIsTabDirty] = useState<boolean>(false);
-    var { reportId = "", tabIndex = "" } = useParams();
-    const reportIdParam = Number(reportId);
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const storageService = new StorageService;
-    const selectedReportTemplate = storageService.getApplicationDataByKey(
-        `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
-        'SelectedEasaReportType'
-    );
-    const showReasonDropdown = selectedReportTemplate === ReportType.DQN;
-    const [searchDocId] = useSearchParams();
-    const getRefGridId = searchDocId.get('edit');
-    // comment functionality states
-    const [editorCommentsDtl, setEditorCommentsDtl] = useState<any[]>([]);
-    const [reportLevelTagList, setReportLevelTagList] = useState<TagDetails[]>([]);
-    const [controlCommentCount, setControlCommentCount] = useState<ControlCommentCount[]>([]);
-    const [openHistoryPopup, setOpenHistoryPopup] = useState<boolean>(false);
-    const [contentID, setContentID] = useState<number>(0);
-    const [controlName, setControlName] = useState<any>("");
-    const [editorKey, setEditorKey] = useState<number>(0);
-    const [addNewComment, setIsNewComment] = useState(false);
-    const [isControlLevelComment, setIsControlLevelComment] = useState<boolean>(false);
-    const [openSupportingInsertPopup, setOpenSupportingInsertPopup] = useState(false);  // handling insert supporting popup
-    const [existData, setExistData] = useState<RefDocGridDetails | null>(null);
-    const openSupInsertPopup = (existData) => {
-        setOpenSupportingInsertPopup(true);
-        setExistData(existData);
-    };
-    const tempReferencesRef = useRef(getRowWiseRefData);
-    const [getPurposeList, setPurposeList] = useState<GetRegulationPurposeData[]>([]);
-    const [statusList, setStatusList] = useState<GetStatus[]>([]);
-    const [selectedStatus, setSelectedStatus] = useState<GetStatus | null>(null);
-    const [selectedValue, setSelectedValue] = useState<GetRegulationPurposeData | null>(null);
-
-    const [getReasonList, setReasonList] = useState<GetReasonCodeData[]>([]);
-    const [selectedReason, setSelectedReason] = useState<GetReasonCodeData | null>(null);
-
-    const handleRowWiseRefDataChange = (supportingData) => {
-        const { DocumentNumber, RevLevel, Source, DocumentTitle, Notes } = supportingData;
-        var onChangeVal: Partial<SupportingRowWiseDetails> = {};
-        onChangeVal.DocumentNumber = DocumentNumber;
-        onChangeVal.RevLevel = RevLevel;
-        onChangeVal.Source = Source;
-        if (Notes !== null && Notes !== undefined && Notes !== '') {
-            onChangeVal.Notes = Notes;
-        }
-        if (DocumentTitle !== null && DocumentTitle !== undefined && DocumentTitle !== '') {
-            onChangeVal.DocumentTitle = DocumentTitle;
-        }
-        setRowWiseRefData((prev) => {
-            if (prev) {
-                return {
-                    ...prev,
-                    ...onChangeVal
-                };
-            }
-            return null;
-        });
-
-        setEditorKey(prev => prev + 1);
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, true);
-        setIsTabDirty(true);
-    };
-
-    const closeSupInsertPopup = (checkIsDataAdded, insertSupportingdata) => {
-        if (checkIsDataAdded) {
-            handleRowWiseRefDataChange(insertSupportingdata);
+ const validateForm = () => {
+        let validationFlag: boolean = false;
+        let newErrors: CSRHeaderDataValidation = {
+            DOCUMENT_NUMBER: "",
+            DOCUMENT_NAME: "",
+            MODEL: "",
+            ECCN: "",
+            CONTENT_OWNER: "",
+            PROJECT_ID: "",
+            SUBSYSTEMS: "",
+            ReportGroup: "",
+            ReportTemplate: "",
+            Report_Description: "",
+            SupplierName: "",
+            MROName: "",
+            DrawingFileName: "",
+            FirstUsedOn: "",
+            ATASubsystem: "",
+            DrawingType: "",
+            FlammabilityTestPlan: "",
+            // SupplierDescription: "",
+            AuditDate: "",
+            NextAuditDate: "",
+            AuditOutcome: "",
+            AssessmentType: "",
+            // Notes: "",
+            DOCUMENT_TITLE: "string",
+            MRO: "",
+            MroDate: "",
+            Document_Description: "",
+            SupplierStatus: "",
+            SupplierActivityAuthorised: "",
+            SupplierActivity: "",
+            SupplierCategory: "",
+            SupplierCapabilities: "",
+            SCAStatus: "",
+            SupplierAuditType: "",
+            CHANGE_DESCRIPTION: "",
+            DDTL_OPTION: ""
         };
-        setOpenSupportingInsertPopup(false);
-    };
-
-    const isPendingWithUser = () => {
-        let currentUserBemsId = AuthorizationService.getUserBemsId();
-        const isUserDataExist = props.headerData?.PendingWithBemsId?.filter(item => {
-            return item == currentUserBemsId;
-        });
-        if (isUserDataExist && isUserDataExist.length > 0 && props.headerData?.RELEASE_DATE == null)
-            return true;
-        return false;
-    };
-
-    React.useEffect(() => {
-        //const scrollPosition = window['rightPaneScrollPosition'] || "0";
-        // const scrollableDiv: any = document.querySelector('#left-custom-box');
-        // scrollableDiv.scrollTo(0, parseInt(scrollPosition, 10));
-        //window.scroll(0, scrollPosition);
-    });
-
-    const bookmarkNavigation = () => {
-        const getBookmarkLinkId = new StorageService().getApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'bookmarkLinkId');
-        if (getBookmarkLinkId != "" && getBookmarkLinkId?.split("-")[0] > 0 && getRowWiseRefData && getRowWiseRefData?.RefDocId == getBookmarkLinkId?.split("-")[0]) {
-            const getBookmarkRowId = getBookmarkLinkId.split("-")[0];
-            const getBookmarkAnchorId = getBookmarkLinkId.split("-")[1];
-            let getBookMarkDestinationByClassName = document.querySelectorAll('[class^="bookmark_destination-"], [class*=" bookmark_destination-"]');
-            for (let i = 0; i < getBookMarkDestinationByClassName.length; i++) {
-                const anchorElement = getBookMarkDestinationByClassName[i];
-                let getElementContentId = anchorElement.className?.split("-")[3];
-                let getElementBKId = anchorElement.id;
-                if (getElementContentId == getBookmarkRowId && getElementBKId == getBookmarkAnchorId) {
-                    const topOffset = (anchorElement as HTMLElement).getBoundingClientRect().top + window.pageYOffset;
-                    window.scrollTo({ top: topOffset - 150, behavior: 'smooth' });
-                    (anchorElement as HTMLElement).style.border = '2px solid #1976d2';
-                    setTimeout(() => {
-                        (anchorElement as HTMLElement).style.border = 'none';
-                    }, 5000);
-                };
-            };
-        }
-    };
-
-    useEffect(() => {
-        tempReferencesRef.current = getRowWiseRefData;
-        bookmarkNavigation();   // function calling for bookmark navigation
-    }, [getRowWiseRefData]);
-
-    const handleOpenHistoryPopup = (controlName, contentID, isInputControl) => {
-        const comments = editorCommentsDtl.filter(comment => comment.ColumnName === controlName);
-        setContentID(contentID);
-        setOpenHistoryPopup(true);
-        setControlName(controlName);
-        if (isPendingWithUser()) {
-            setIsNewComment(true);
-        }
-        if (isInputControl) {
-            setIsControlLevelComment(true);
-        }
-        setContentID(comments[0]?.ContentID || 0);
-    };
-
-    const refreshAllEditor = () => {
-        fetchData(true);
-    };
-
-    const handleCloseHistoryPopup = (isPopupDirty) => {
-        setOpenHistoryPopup(false);
-        setIsNewComment(false);
-        setIsTabDirty(false);
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
-        if (isPopupDirty) {
-            refreshAllEditor();
-        }
-    };
-
-    const handleCommentStatus = (controlName) => {
-        const comments = editorCommentsDtl.filter(comment => comment.ColumnName === controlName);
-        const commentStatus = comments?.some(comment => comment.CommentStatus === "0") ? "error" : "success";
-        return commentStatus;
-    }
-
-    const updateAddNewComment = (value) => {
-        setIsNewComment(value);
-    };
-
-    const getCommentCount = (controlName) => {
-        const control = controlCommentCount.filter(item => item.ControlName === controlName);
-        return control.length > 0 ? control[0].CommentCnt : 0;
-    };
-
-    const fetchData = async (highlightTabAndHdr) => {
-
-        const response = await ConfigureReferencesService.GetReferenceDataByRefDocId(Number(getRefGridId));
-        if (response && response.data) {
-
-            let configRefDtl = {
-                RefDocId: Number(getRefGridId),
-                RptId: reportIdParam,
-                TableCode: Number(getRefGridId) === 0 ? props.selectedConfigData.TableCode : response.data[0].TableCode,
-                ReqCompId: 0,
-            } as ConfigRefDtl;
-
-            let controlDtl = {
-                ControlId: 0,
-                RptId: reportIdParam,
-                RowId: Number(getRefGridId),
-                ScreenName: Number(getRefGridId) === 0 ? props.selectedConfigData.TableCode : response.data[0].TableCode,
-                FieldName: ""
-            } as ControlsDtls;
-            const key = `${configRefDtl.TableCode ?? ""}`;
-            dispatch(fetchStart({ key }));
-            const [getRefRowWiseDtl, configRefDataResult, getCofigRefComment, getConfigRefCmtCount, reportLevelTagDetailRes, regPurposeData, reasonMasterData, easaStatusList] = await Promise.all([
-                ReferenceDataGridService.getReferenceDocumentDetails(configRefDtl),
-                ReferenceDataGridService.getReferenceDocumentDetails({ ...configRefDtl, RefDocId: 0 }),
-                ManageReferenceDataService.GetControlCommentsData(controlDtl, true),
-                ManageReferenceDataService.GetControlCommentCount(controlDtl),
-                dynamicTabsService.getReportLevelTagDetails(reportIdParam),
-                SuppInsertPopupDataService.GetRegulationPurposeMasterData(),
-                ManageReferenceDataService.GetReasonCodeData(),
-                ManageReferenceDataService.GetEasaStatus()
-            ]);
-            const list = configRefDataResult.data.RefDetailsList ?? [];
-            dispatch(fetchSuccess({ key, data: list }));
-            if (regPurposeData && regPurposeData.data.length > 0) {
-                const getInitialPurposeData = regPurposeData.data.filter((list) => list.MasterValue === response.data[0]?.Purpose);
-                if (getInitialPurposeData.length > 0) {
-                    setSelectedValue(getInitialPurposeData[0]);
-                }
-                setPurposeList(regPurposeData.data);
-            }
-            if (reasonMasterData && reasonMasterData.data && reasonMasterData.data.length > 0) {
-                setReasonList(reasonMasterData.data);
-                if (showReasonDropdown && getRefRowWiseDtl.data?.RefDetailsList && Number(getRefGridId) != 0) {
-                    const initial = reasonMasterData.data.find(r => r.ReasonCode === getRefRowWiseDtl.data.RefDetailsList[0].ReasonCode);
-                    if (initial) setSelectedReason(initial);
-                }
-            }
-            if (getRefRowWiseDtl.data && getRefRowWiseDtl.data.RefDetailsList && Number(getRefGridId) != 0) {   // api for getting row wise config ref data dynamically
-                setRowWiseRefData(getRefRowWiseDtl.data.RefDetailsList[0]);
-            }
-            if (configRefDataResult.data && configRefDataResult.data.RefDetailsList) {
-                configRefDocDetails = configRefDataResult.data.RefDetailsList
-                var resultDropDownData: ConfigRefDropdownData[] = configRefDocDetails.map((item) => ({
-                    RefDocId: item.RefDocId,
-                    DocumentNumber: item.DocumentNumber,
-                    RevLevel: item.RevLevel,
-                    DocumentTitle: item.DocumentTitle
-                }));
-                if (resultDropDownData.length > 0 && getRefRowWiseDtl.data?.RefDetailsList && Number(getRefGridId) != 0) {
-                    const selectedOption = resultDropDownData.find(item => item.DocumentNumber === getRefRowWiseDtl.data.RefDetailsList[0].DocumentNumber);
-                    setSelectedDocNumberValue(selectedOption || null);
-                }
-                setRefDocDetails(getRefRowWiseDtl.data?.RefDetailsList)
-                // setRefGridDataLength(resultDropDownData.length);
-                setConfigDropdownData(resultDropDownData);
-            }
-            if (easaStatusList.data) {
-                const getInitialStatus = easaStatusList.data.filter((list) => list.StatusId === response.data[0]?.EASAStatusId);
-                if (getInitialStatus != null) {
-                    setSelectedStatus(getInitialStatus[0]);
-                }
-                setStatusList(easaStatusList.data);
-            };
-            if (getCofigRefComment.data) {
-                setEditorCommentsDtl(getCofigRefComment.data);
-            };
-            if (getConfigRefCmtCount.data) {
-                setControlCommentCount(getConfigRefCmtCount.data);
-            }
-            if (reportLevelTagDetailRes.data) {
-                setReportLevelTagList(reportLevelTagDetailRes.data);
-            }
-            setEditorKey(prev => prev + 1);
-            // Method to highlight Header Compliance Button
-            if (highlightTabAndHdr)
-                getUnresolvedCommentCountForHeaderBtn();
-        }
-    };
-
-    const getUnresolvedCommentCountForHeaderBtn = () => {
-        dynamicTabsService.getUnresolvedCommentCountForHeaderBtn(parseInt(reportId)).then(result => {
-            // Publish to update color in case of unresolve comment
-            let dataToShare = {
-                Action: 'UpdateColorData',
-                Detail: {
-                    CountResult: result.data
-                }
-            };
-            PubSub.publish(PubSubEvent.HIGHLIGHT_HEADER_BUTTON, dataToShare);
-        });
-        let detailsToShare = {
-            Action: 'UpdateColorData',
-            Detail: {
-                TotalUnresolvedCommentCount: 0,
-                tabId: tabIndex
-            }
-        };
-        PubSub.publish(PubSubEvent.UPDATE_TAB_COLOR, detailsToShare);
-    }
-
-    useEffect(() => {
-        if (Number(getRefGridId) > 0) {
-            fetchData(false);
-        } else if (getRefGridId === "0") {
-            setRowWiseRefData(initialBoeingRefGridData);
-            setSelectedDocNumberValue(initialSelectedDropDownData);
-            fetchData(false);
-        };
-    }, [getRefGridId]);
-
-    const handleDocumentChange = (selectedOption: ConfigRefDropdownData | null) => {
-        if (!selectedOption) {
-            setSelectedDocNumberValue(null);
-            setRowWiseRefData(null);
-            tempReferencesRef.current = null;
-            return;
-        }
-        const refRowId = selectedOption.RefDocId;
-        if (isTabDirty) {
-            userDefinedConfirm({ message: `There are unsaved changes in the current session. Do you want to proceed without saving?`, okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
-                ({ button, input }) => {
-                    setRowWiseRefData(null);
-                    tempReferencesRef.current = null;
-                    setSelectedDocNumberValue(selectedOption);
-                    props.showManageSection(refRowId);
-                    setIsTabDirty(false);
-                    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
-                },
-                () => {
-                    return;
-                }
-            );
+        if (selectedPmdbProjectId != null && itarProjectFlag == 1) {
+            newErrors.PROJECT_ID = "* Unauthorized Access Denied!";
+            validationFlag = false;
+        } else if (selectedPmdbProjectId == null && !isEasaRegister) {
+            newErrors.PROJECT_ID = "* Project id is required";
+            validationFlag = false;
+        } else if (invalidProjectId && !isEasaRegister) {
+            newErrors.PROJECT_ID = "* Selected Project Id is not valid";
+            validationFlag = false;
         } else {
-            setSelectedDocNumberValue(selectedOption);
-            setRowWiseRefData(null);
-            tempReferencesRef.current = null;
-            props.showManageSection(refRowId);
-        }
-    };
-
-    const isActiveSectionDirty = async () => {
-        return isTabDirty;
-    };
-
-
-    useImperativeHandle(ref, () => ({ saveActiveSectionDetails, isActiveSectionDirty }));
-
-    const numberToAlphabet = (num) => {
-        let result = "";
-        while (num > 0) {
-            num--; // Adjust for 0-based index
-            result = String.fromCharCode((num % 26) + 65) + result;
-            num = Math.floor(num / 26);
-        }
-        return result;
-    };
-
-    const handleRefSequence = (refSequenceNo) => {
-        if (props.selectedConfigData.SupportingFlag === "N") {
-            if (getRefGridId === "0") {
-                let updatedSeq = getRefDocDetails.length + 1;
-                if (props && props?.selectedConfigData?.SequenceStartWith?.includes('.')) {
-                    return props?.selectedConfigData?.SequenceStartWith?.replace('.1', `.${updatedSeq}`);
-                } else {
-                    return numberToAlphabet(updatedSeq).toLowerCase();
-                }
-            } else {
-                return refSequenceNo;
-            };
-        } else {
-            return refSequenceNo;
-        }
-    };
-
-    const InsertContentLogDetails = async (response) => {
-        let tempRevisionDataList: RevisionListDetails[] = [];
-        tempRevisionDataList.push({
-            ReportId: reportIdParam,
-            Description: response.DocumentNumber,
-            OperationType: OperationType.ADD,
-            CreatedBy: 0,
-            TabId: parseInt(tabIndex),
-            TabTitle: "",
-            AuthorComment: response.DocumentNumber,
-            TabSectionId: 0,
-            ContentId: 0,
-            SecIndexValue: "",
-            ContIndexValue: "",
-            ModifiedBy: 0,
-            TabSectionName: response.TableCode,
-            ContentTitleName: response.TableCode,
-            ActualTabTitle: "",
-        });
-        await AddRevisionPopupService.InsertContentLogDetails(tempRevisionDataList).then((res) => {
-        }).catch((error) => { });
-    };
-
-    const saveActiveSectionDetails = async () => {
-        const dataToSave = tempReferencesRef.current;
-        if (getRowWiseRefData && dataToSave) {
-            if ((!getRowWiseRefData.DocumentNumber || !getRowWiseRefData.RevLevel) && props.selectedConfigData.SupportingFlag === "N") {
-                dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Please fill the required fields Document Number and Rev level.", }));
-                return;
-            }
-            else {
-                try {
-                    let checkIsDocNumberDuplicate = getConfigDropDownData.filter(doc => doc.DocumentNumber === getRowWiseRefData.DocumentNumber).length > 0;
-                    if (checkIsDocNumberDuplicate && props.selectedConfigData.SupportingFlag === "N" && selectedDocNumberValue && selectedDocNumberValue?.DocumentNumber !== getRowWiseRefData.DocumentNumber) {
-                        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Document Number can be not duplicate.", }));
-                        return;
-                    } else {
-                        let InsertRefCheckItemsDetails: ConfigRefDocDetails = {} as ConfigRefDocDetails;
-                        InsertRefCheckItemsDetails.DocumentNumber = getRowWiseRefData.DocumentNumber;
-                        InsertRefCheckItemsDetails.Notes = dataToSave.Notes;
-                        InsertRefCheckItemsDetails.Source = getRowWiseRefData.Source;
-                        InsertRefCheckItemsDetails.DocumentTitle = dataToSave.DocumentTitle;
-                        InsertRefCheckItemsDetails.ProjectNumber = Number(getRefGridId) != 0 ? getRowWiseRefData.SupportingProjectidSdtno : "";
-                        InsertRefCheckItemsDetails.SelectedSource = getRowWiseRefData.Source;
-                        InsertRefCheckItemsDetails.RefDocId = Number(getRefGridId) != 0 ? getRowWiseRefData.RefDocId : Number(getRefGridId);
-                        InsertRefCheckItemsDetails.RevLevel = getRowWiseRefData.RevLevel;
-                        InsertRefCheckItemsDetails.RptId = Number(getRefGridId) != 0 ? getRowWiseRefData.RptId : reportIdParam;
-                        InsertRefCheckItemsDetails.ItemStatus = Number(getRefGridId) != 0 ? OperationType.UPDATE : OperationType.ADD;
-                        // Do create RefSeq, if its already present
-                        if (!dataToSave.RefSequence) {
-                            const suffixNum = getConfigDropDownData.length > 0 ? getConfigDropDownData.length + 1 : 1;
-                            InsertRefCheckItemsDetails.RefSequence = suffixNum.toString();
+            if (!isEasaRegister) {
+                if (
+                    !csrHeaderData[0].DOCUMENT_NUMBER?.trim() &&
+                    !csrHeaderData[0].DOCUMENT_NAME?.trim()
+                ) {
+                    let tempHeaderData = JSON.parse(JSON.stringify(csrHeaderData));
+                    tempHeaderData[0].DOCUMENT_NUMBER = "";
+                    tempHeaderData[0].DOCUMENT_NAME = "";
+                    setCsrHeaderData(tempHeaderData);
+                    if (checkIsEasaWorkSpace) {
+                        if (
+                            selectedTemplate?.TemplateTitle.toUpperCase() ==
+                            ReportType.Drawing.toUpperCase()
+                        ) {
+                            if (
+                                !csrHeaderData[0].DOCUMENT_NAME?.trim() &&
+                                drawingFileCount > 0
+                            ) {
+                                newErrors.DOCUMENT_NAME = "* Drawing Title is required";
+                            }
+                            newErrors.DOCUMENT_NUMBER = "* Drawing Number is required";
                         } else {
-                            InsertRefCheckItemsDetails.RefSequence = dataToSave.RefSequence.split(".")[1];
+                            newErrors.DOCUMENT_NAME = "* Document Title is required";
+                            newErrors.DOCUMENT_NUMBER = "* Document Number is required";
                         }
-                        InsertRefCheckItemsDetails.TableCode = Number(getRefGridId) != 0 ? getRowWiseRefData.TableCode : props.selectedConfigData.TableCode;
-                        InsertRefCheckItemsDetails.CommentRedFlag = "";
-                        InsertRefCheckItemsDetails.EASAStatusId = Number(selectedStatus?.StatusId);
-                        InsertRefCheckItemsDetails.SupportingDataGridRowCommentCnt = 0;
-                        InsertRefCheckItemsDetails.SupportingDataGridRowUnResolvedCommentCnt = 0;
-                        InsertRefCheckItemsDetails.Purpose = (Number(getRefGridId) != 0 && getRowWiseRefData.Purpose != "") ? getRowWiseRefData.Purpose : "";
-                        InsertRefCheckItemsDetails.SourceId = (Number(getRefGridId) != 0 && getRowWiseRefData.SourceId != null) ? getRowWiseRefData.SourceId : 0;
-                        InsertRefCheckItemsDetails.ReasonCode = (Number(getRefGridId) != 0 && getRowWiseRefData.ReasonCode != null) ? getRowWiseRefData.ReasonCode : "";
-                        SuppInsertPopupDataService.UpsertReferenceDataByRowId([InsertRefCheckItemsDetails]).then((res) => {
-                            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Data Saved successfully." }));
-                            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
-                            setIsTabDirty(false);
-                            fetchData(false);
-                            if (props.selectedConfigData.SupportingFlag === "N" && Number(getRefGridId) === 0 && res && res.data.length > 0) {
-                                let newRefDocId = Number(res.data[0].RefDocId);
-                                navigate(`${PathConstants.CONFIGURE_REFERENCES.replace(":reportId", reportId).replace(FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX, `${FixedTabTitle.CONFIGURE_REFERENCES_TAB_INDEX}?edit=${newRefDocId}`)}`);
-                            };
-                            //If revision then need to add in Description of chnge
-                            if (props.headerData?.REVISION && props.headerData.REVISION.trim() !== "" && props.headerData.PARENT_RPT_ID != null && props.headerData.PARENT_RPT_ID > 0 && res.data[0].ItemStatus == OperationType.ADD) {
-                                InsertContentLogDetails(res.data[0]);
-                            };
-                        })
+                    } else {
+                        newErrors.DOCUMENT_NAME = "* Document Name is required";
+                        newErrors.DOCUMENT_NUMBER = "* Document Number is required";
                     }
-                } catch (error) {
-                    console.log('Error occurred while saving Reference Documents.', error);
+                } else if (!csrHeaderData[0].DOCUMENT_NAME?.trim()) {
+                    let tempHeaderData = JSON.parse(JSON.stringify(csrHeaderData));
+                    tempHeaderData[0].DOCUMENT_NAME = "";
+                    setCsrHeaderData(tempHeaderData);
+                    if (checkIsEasaWorkSpace) {
+                        if (
+                            selectedTemplate?.TemplateTitle.toUpperCase() ==
+                            ReportType.Drawing.toUpperCase()
+                        ) {
+                            if (
+                                !csrHeaderData[0].DOCUMENT_NAME?.trim() &&
+                                drawingFileCount > 0
+                            ) {
+                                newErrors.DOCUMENT_NAME = "* Drawing Title is required";
+                            } else {
+                                validationFlag = true;
+                            }
+                        } else {
+                            newErrors.DOCUMENT_NAME = "* Document Title is required";
+                        }
+                    } else {
+                        newErrors.DOCUMENT_NAME = "* Document Name is required";
+                    }
+                } else if (!csrHeaderData[0].DOCUMENT_NUMBER?.trim()) {
+                    let tempHeaderData = JSON.parse(JSON.stringify(csrHeaderData));
+                    tempHeaderData[0].DOCUMENT_NUMBER = "";
+                    setCsrHeaderData(tempHeaderData);
+                    if (checkIsEasaWorkSpace) {
+                        newErrors.DOCUMENT_NUMBER =
+                            "* " +
+                            (selectedTemplate?.TemplateTitle.toUpperCase() ==
+                                ReportType.Drawing.toUpperCase()
+                                ? drawingTitle
+                                : reportTitle) +
+                            " Number is required";
+                    } else {
+                        newErrors.DOCUMENT_NUMBER = "* Document Number is required";
+                    }
+                } else {
+                    newErrors.DOCUMENT_NAME = "";
+                    newErrors.DOCUMENT_NUMBER = "";
+                    validationFlag = true;
                 }
-            };
-        };
-    };
+                if (
+                    !csrHeaderData[0].ReportDescription?.trim() &&
+                    checkIsEasaWorkSpace
+                  ) {
+                    // EASA reports: Document Description is non-mandatory
+                    newErrors.Report_Description = "";
+                    validationFlag = validationFlag && true;
+                  } else {
+                    newErrors.Report_Description = "";
+                    validationFlag = validationFlag && true;
+                  }
+                if (!csrHeaderData[0].ECCN) {
+                    newErrors.ECCN = "* ECCN is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.ECCN = "";
+                    validationFlag = validationFlag && true;
+                }
+                if (!csrHeaderData[0].SubSystems) {
+                    newErrors.SUBSYSTEMS = "* Sub-System is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.SUBSYSTEMS = "";
+                    validationFlag = validationFlag && true;
+                }
+                if (!csrHeaderData[0].CONTENT_OWNER && !checkIsEasaWorkSpace) {
+                    newErrors.CONTENT_OWNER = "* Content Owner is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.CONTENT_OWNER = "";
+                    validationFlag = validationFlag && true;
+                }
+                if (!csrHeaderData[0].MODEL) {
+                    newErrors.MODEL = "* Model is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.MODEL = "";
+                    validationFlag = validationFlag && true;
+                }
+                if (!csrHeaderData[0].GroupTitle) {
+                    newErrors.ReportGroup = "* Report group is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.ReportGroup = "";
+                    validationFlag = validationFlag && true;
+                }
+                if (!csrHeaderData[0].TemplateTitle) {
+                    newErrors.ReportTemplate = "* Report Type is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.ReportTemplate = "";
+                    validationFlag = validationFlag && true;
+                }
 
-    const isCurrentUserAuthor = () => {
-        if (props.headerData && props.headerData.EditEnabledFlag === "Y" && props.headerData?.WorkFlowStep == ReportStepId.CREATE_STEP)
-            return true;
-        else
-            return false;
-    };
-
-    const handleStatusChange = (event: any, newValue: GetStatus | null) => {
-        const updates: Partial<SupportingRowWiseDetails> = {};
-        if (newValue) {
-            setSelectedStatus(newValue);
-            updates.EASAStatusId = newValue.StatusId;
-        };
-        setRowWiseRefData((prev) => {
-            if (prev) {
-                return {
-                    ...prev,
-                    ...updates
-                };
-            }
-            return null;
-        });
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, true);
-        setIsTabDirty(true);
-    }
-
-    const handleFieldchange = (event) => {
-        const { name, value } = event.target;
-        const updates: Partial<SupportingRowWiseDetails> = {};
-        if (name === 'DocumentNumber') {
-            updates.DocumentNumber = value;
-        } else if (name === 'RevLevel') {
-            updates.RevLevel = value;
-        } else if (name === 'Source' && props.selectedConfigData.SupportingFlag === "N") {
-            updates.Source = value;
-        }
-        else if (name === 'Document Title') {
-            updates.DocumentTitle = value;
-        }
-        setRowWiseRefData((prev) => {
-            if (prev) {
-                return {
-                    ...prev,
-                    ...updates
-                };
-            }
-            return null;
-        });
-
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, true);
-        setIsTabDirty(true);
-    };
-
-    const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, targetContent: string, newDataToInsert: string, content: string) => {
-        const updates: Partial<SupportingRowWiseDetails> = {};
-        let originalPlainText = content ? htmlToText(content, { wordwrap: false }) : "";
-        let updatedPlainText = newDataToInsert ? htmlToText(newDataToInsert, { wordwrap: false }) : "";
-        if (targetContent === 'DocumentTitle') {
-            updates.DocumentTitle = newDataToInsert;
-        } else if (targetContent === 'Notes') {
-            updates.Notes = newDataToInsert;
-        };
-
-        // Check if 'headerData' is defined and has at least one element, and ensure 'csrData[0]' and its 'STATE' are valid
-        if (props && props.headerData && props.headerData?.WorkFlowStep !== ReportStepId.CREATE_STEP) {
-            // Only proceed if 'updatedPlainText' and 'originalPlainText' are different
-            if (updatedPlainText === originalPlainText) {
-                setRowWiseRefData((prev) => {
-                    if (prev) {
-                        return {
-                            ...prev,
-                            ...updates
-                        };
+                if (!csrHeaderData[0].TemplateTitle) {
+                    newErrors.ReportTemplate = "* Report Type is required";
+                    validationFlag = validationFlag && false;
+                } else {
+                    newErrors.ReportTemplate = "";
+                    validationFlag = validationFlag && true;
+                }
+                // Supplier validation: only when in EASA workspace AND type is Supplier
+                if (easaMasterType === EasaMasterType.MRO ||
+                    easaMasterType === EasaMasterType.DODO ||
+                    easaMasterType === EasaMasterType.DOPO ||
+                    easaMasterType === EasaMasterType.Supplier ||
+                    easaMasterType === EasaMasterType.WorkingArrangement) {
+                    if (!csrHeaderData[0].SupplierName) {
+                        newErrors.SupplierName = "* Supplier Name is required";
+                        validationFlag = validationFlag && false;
+                    } else {
+                        newErrors.SupplierName = "";
+                        validationFlag = validationFlag && true;
                     }
-                    return null;
-                });
-                setIsTabDirty(false);
+                }
+                // if (easaMasterType === EasaMasterType.MRO) {
+                //     if (!csrHeaderData[0].MroDate) {
+                //         newErrors.MroDate = "* MRO Date is required";
+                //         validationFlag = false;
+                //     } else {
+                //         newErrors.MroDate = "";
+                //     }
+                // }
+                if (selectedTemplate?.TemplateTitle.toUpperCase() == ReportType.Drawing.toUpperCase()) {
+                    // if (drawingFileCount == 0) {
+                    //     newErrors.DrawingFileName = "* Attach PDF is required";
+                    //     validationFlag = validationFlag && false;
+                    // }
+                    // else {
+                    //     newErrors.DrawingFileName = "";
+                    //     validationFlag = validationFlag && true;
+                    // }
+
+                    if (!selectedAtaSubsystem) {
+                        newErrors.ATASubsystem = "* ATA Subsystem is required";
+                        validationFlag = validationFlag && false;
+                    } else {
+                        newErrors.ATASubsystem = "";
+                        validationFlag = validationFlag && true;
+                    }
+                    if (!selectedDrawingType) {
+                        newErrors.DrawingType = "* Drawing Type is required";
+                        validationFlag = validationFlag && false;
+                    } else {
+                        newErrors.DrawingType = "";
+                        validationFlag = validationFlag && true;
+                    }
+                } else {
+                    newErrors.DrawingFileName = "";
+                    newErrors.ATASubsystem = "";
+                    newErrors.DrawingType = "";
+                    validationFlag = validationFlag && true;
+                }
+            }
+        }
+
+        const isFlammabilityTpl =
+            selectedTemplate?.TemplateTitle &&
+            selectedTemplate.TemplateTitle.toLowerCase() ===
+            (ReportType.FlammabilityTestPlan ?? "").toLowerCase();
+
+        if (isFlammabilityTpl) {
+            if (!selectedFlammability) {
+                newErrors.FlammabilityTestPlan = "* Flammability Test Plan is required";
+                validationFlag = validationFlag && false;
             } else {
-                let tempCategories = JSON.parse(JSON.stringify(getRowWiseRefData));
-                setRowWiseRefData(null);
-                tempReferencesRef.current = null;
-                setTimeout(() => {
-                    setRowWiseRefData(tempCategories);
-                    tempReferencesRef.current = tempCategories;
-                });
+                newErrors.FlammabilityTestPlan = "";
+                validationFlag = validationFlag && true;
             }
-        } else {
-            setRowWiseRefData((prev) => {
-                if (prev) {
-                    tempReferencesRef.current = { ...prev, ...updates };
-                    return {
-                        ...prev,
-                        ...updates
-                    };
-                }
-                return null;
-            });
-            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, true);
-            setIsTabDirty(true);
         }
-    };
 
-    function removeHTMLTags(htmlContent) {
-        if (htmlContent) {
-            var modifiedHtml = htmlContent.replace(/<p>/g, ' <p>');//add space before each para
-            // Create a new DOMParser instance
-            const parser = new DOMParser();
-            // Parse the HTML string into a DOM document
-            const doc = parser.parseFromString(modifiedHtml, 'text/html');
-            // Extract the text content from the parsed document
-            const textContent = doc.body.textContent || "";
-            return textContent.trim(); // Trim any leading or trailing whitespace
-        } else {
-            return "";
-        }
-    };
-
-    const handleReportGroupChange = (event: any, newValue: GetRegulationPurposeData | null) => {
-        const updates: Partial<SupportingRowWiseDetails> = {};
-        if (newValue) {
-            setSelectedValue(newValue);
-            updates.Purpose = newValue.MasterValue;
-        };
-        setRowWiseRefData((prev) => {
-            if (prev) {
-                return {
-                    ...prev,
-                    ...updates
-                };
+        //Supplier Validation Changes -- start
+        if (registerType == EasaMasterType.Supplier) {
+            validationFlag = true;
+            if (!csrHeaderData[0].SupplierName) {
+                newErrors.SupplierName = "* Supplier Name is required";
+                validationFlag = validationFlag && false;
+            } else {
+                newErrors.SupplierName = "";
+                validationFlag = validationFlag && true;
             }
-            return null;
-        });
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, true);
-        setIsTabDirty(true);
-    };
 
-    const handleReasonChange = (event: any, newValue: GetReasonCodeData | null) => {
-        const updates: Partial<SupportingRowWiseDetails> = {};
-        if (newValue) {
-            setSelectedReason(newValue);
-            updates.ReasonCode = newValue.ReasonCode;
-        } else {
-            setSelectedReason(null);
-            updates.ReasonCode = "";
+            // if (!csrHeaderData[0].SupplierActivity) {
+            //     newErrors.SupplierActivity = "* Supplier Activity is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.SupplierActivity = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].SupplierCategory) {
+            //     newErrors.SupplierCategory = "* Supplier Category is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.SupplierCategory = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].SupplierCapabilities) {
+            //     newErrors.SupplierCapabilities =
+            //         "* Supplier Capabilities is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.SupplierCapabilities = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].CHANGE_DESCRIPTION) {
+            //     newErrors.CHANGE_DESCRIPTION = "* Supplier Description is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.CHANGE_DESCRIPTION = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].ScaStatus) {
+            //     newErrors.SCAStatus = "* Supplier SCAStatus is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.SCAStatus = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].AuditDate) {
+            //     newErrors.AuditDate = "* Audit Date is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.AuditDate = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].NextAuditDate) {
+            //     newErrors.NextAuditDate = "* Next Audit Date is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.NextAuditDate = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].SupplierAuditType) {
+            //     newErrors.SupplierAuditType = "* Supplier Audit Type is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.AssessmentType = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].AuditOutcome) {
+            //     newErrors.AuditOutcome = "* Audit Outcome is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.AuditOutcome = "";
+            //     validationFlag = validationFlag && true;
+            // }
+
+            // if (!csrHeaderData[0].ApprovedBy) {
+            //   newErrors.ApprovedBy = "* ApprovedBy is required";
+            //   validationFlag = validationFlag && false;
+            // } else {
+            //   newErrors.ApprovedBy = "";
+            //   validationFlag = validationFlag && true;
+            // }
         }
-        setRowWiseRefData((prev) => {
-            if (prev) {
-                return {
-                    ...prev,
-                    ...updates
-                };
+        //Supplier Validation Changes -- end
+
+        // MRO Validation Changes -- start
+        if (registerType === EasaMasterType.MRO) {
+            validationFlag = true;
+            if (!csrHeaderData[0]?.PROJECT_ID) {
+                newErrors.PROJECT_ID = "* Project Register Id is required";
+                validationFlag = false;
+            } else {
+                newErrors.PROJECT_ID = "";
             }
-            return null;
-        });
-        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, true);
-        setIsTabDirty(true);
+
+            // if (!selectedReportGroup || !selectedReportGroup.GroupId) {
+            //   newErrors.ReportGroup = "* Report group is required";
+            //   validationFlag = false;
+            // } else {
+            //   newErrors.ReportGroup = "";
+            // }
+
+            // if (!selectedTemplate || !selectedTemplate.TemplateId) {
+            //   newErrors.ReportTemplate = "* Report Type is required";
+            //   validationFlag = false;
+            // } else {
+            //   newErrors.ReportTemplate = "";
+            // }
+
+            if (!csrHeaderData[0]?.DOCUMENT_NAME?.trim()) {
+                newErrors.DOCUMENT_TITLE = "* Document Title is required";
+                validationFlag = false;
+            } else {
+                newErrors.DOCUMENT_TITLE = "";
+            }
+
+            if (
+                !csrHeaderData[0]?.DOCUMENT_DESCRIPTION &&
+                !csrHeaderData[0]?.ReportDescription
+            ) {
+                newErrors.Document_Description = "* Document Description is required";
+                validationFlag = false;
+            } else {
+                newErrors.Document_Description = "";
+            }
+
+            if (!csrHeaderData[0]?.DOCUMENT_NUMBER) {
+                newErrors.DOCUMENT_NUMBER = "* Document Number is required";
+                validationFlag = false;
+            } else {
+                newErrors.DOCUMENT_NUMBER = "";
+            }
+
+            // const currentMroName = csrHeaderData[0]?.MRO_Name;
+            // if (!currentMroName) {
+            //   newErrors.MRO = "* MRO is required";
+            //   validationFlag = false;
+            // } else {
+            //   newErrors.MRO = "";
+            // }
+
+            // const currentApprovalRef = csrHeaderData[0]?.Approval_Reference;
+            // if (!currentApprovalRef) {
+            //   newErrors.Approval_Reference = "* Approval Reference is required";
+            //   validationFlag = false;
+            // } else {
+            //   newErrors.Approval_Reference = "";
+            // }
+
+            if (!csrHeaderData[0].MroDate) {
+                newErrors.MroDate = "* MRO Date is required";
+                validationFlag = false;
+            } else {
+                newErrors.MroDate = "";
+            }
+        }
+        // MRO Validation Change -- end
+
+        //Working Arrangement Validation Changes -- start
+        if (registerType == EasaMasterType.WorkingArrangement) {
+            validationFlag = true;
+
+            if (!csrHeaderData[0].SupplierName) {
+                newErrors.SupplierName = "* Supplier Name is required";
+                validationFlag = validationFlag && false;
+            } else {
+                newErrors.SupplierName = "";
+                validationFlag = validationFlag && true;
+            }
+
+            //Notes
+            // if (!csrHeaderData[0].CHANGE_DESCRIPTION) {
+            //     newErrors.CHANGE_DESCRIPTION = "* Notes is required";
+            //     validationFlag = validationFlag && false;
+            // } else {
+            //     newErrors.CHANGE_DESCRIPTION = "";
+            //     validationFlag = validationFlag && true;
+            // }
+            // if (!csrHeaderData[0].GroupTitle) {
+            //   newErrors.ReportGroup = "* Report group is required";
+            //   validationFlag = validationFlag && false;
+            // } else {
+            //   newErrors.ReportGroup = "";
+            //   validationFlag = validationFlag && true;
+            // }
+            // if (!csrHeaderData[0].TemplateTitle) {
+            //   newErrors.ReportTemplate = "* Report Type is required";
+            //   validationFlag = validationFlag && false;
+            // } else {
+            //   newErrors.ReportTemplate = "";
+            //   validationFlag = validationFlag && true;
+            // }
+            // if (!csrHeaderData[0]?.DOCUMENT_NUMBER) {
+            //   newErrors.DOCUMENT_NUMBER = "* Document Number is required";
+            //   validationFlag = false;
+            // } else {
+            //   newErrors.DOCUMENT_NUMBER = "";
+            // }
+            newErrors.DOCUMENT_NUMBER = "";
+            if (!csrHeaderData[0]?.DOCUMENT_NAME) {
+                newErrors.DOCUMENT_NAME = "* Document Name is required";
+                validationFlag = false;
+            } else {
+                newErrors.DOCUMENT_NAME = "";
+            }
+        }
+        //Working Arrangement Validation Changes -- end
+        if (registerType == EasaMasterType.DOPO) {
+            validationFlag = true;
+            if (!csrHeaderData[0]?.PROJECT_ID) {
+                newErrors.PROJECT_ID = "* Project Register Id is required";
+                validationFlag = false;
+            } else {
+                newErrors.PROJECT_ID = "";
+            }
+
+            if (!csrHeaderData[0]?.DOCUMENT_NAME?.trim()) {
+                newErrors.DOCUMENT_TITLE = "* Document Title is required";
+                validationFlag = false;
+            } else {
+                newErrors.DOCUMENT_TITLE = "";
+            }
+
+            if (!csrHeaderData[0]?.DOCUMENT_NUMBER) {
+                newErrors.DOCUMENT_NUMBER = "* Document Number is required";
+                validationFlag = false;
+            } else {
+                newErrors.DOCUMENT_NUMBER = "";
+            }
+        }
+        setErrors(newErrors);
+        return validationFlag;
     };
-
-    return (
-        <div id="manage-supporting-data" style={{ height: '100%' }}>
-            <div className="editSupportingContent" style={{ height: '100%' }}>
-                <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}>
-                    {/* <Grid item xs={12}>
-            <p style={{ fontSize: '18px' }}>Edit Supporting Data</p>
-          </Grid> */}
-                    <Grid item xs={12} spacing={3} style={{ display: 'flex', paddingTop: '12px' }}>
-                        <Grid item md={12}>
-                            <Grid md={12} style={{ display: 'flex' }}>
-                                <label>Select Document Number</label>
-                            </Grid>
-                            <Grid md={12} style={{ display: 'flex' }}>
-                                <Grid md={11} className="editSupportingContentLeft">
-                                    <Grid>
-                                        <Autocomplete
-                                            size="small"
-                                            options={getConfigDropDownData}
-                                            getOptionLabel={(option) => {
-                                                const cleanDocTitle = removeHTMLTags(option.DocumentTitle);
-                                                return [option.DocumentNumber, option.RevLevel, cleanDocTitle]
-                                                    .filter(Boolean)
-                                                    .join(", ");
-                                            }}
-                                            value={selectedDocNumberValue}
-                                            forcePopupIcon={true}
-                                            disabled={Number(getRefGridId) === 0}
-                                            noOptionsText="No option available"
-                                            id="txt_auto_search_Doc_Number"
-                                            onChange={(event, newValue) => {
-                                                if (newValue) {
-                                                    handleDocumentChange(newValue);
-                                                } else {
-                                                    setSelectedDocNumberValue(null);
-                                                }
-                                            }}
-                                            renderInput={(params) => (
-                                                <TextField
-                                                    {...params}
-                                                    placeholder="Select Document Number"
-                                                    size="small"
-                                                    sx={{ width: '100%' }}
-                                                />
-                                            )}
-                                            ListboxProps={{
-                                                sx: {
-                                                    '& li': {
-                                                        fontSize: '14px',
-                                                        color: '#253746',
-                                                        whiteSpace: 'nowrap',
-                                                        overflow: 'hidden',
-                                                        textOverflow: 'ellipsis',
-                                                        display: 'block !important'
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                    </Grid>
-                                </Grid>
-                                {/* <Grid item md={1} className="manageSupportingComment">
-                  <Badge
-                    id="badge2"
-                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                    style={{ color: '#737373' }}
-                  >
-                    <IconButton>
-                      <SpeakerNotesOutlinedIcon />
-                    </IconButton>
-                  </Badge>
-                </Grid> */}
-                            </Grid>
-                        </Grid>
-                    </Grid>
-                </Grid>
-                {/* <Grid item xs={12} className='grid-item-spacing' style={{ display: 'flex' }}> */}
-                <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}>
-                    <Grid item xs={4} className='grid-item-spacing' style={{ display: 'flex' }}>
-                        <Grid item md={12}>
-                            <Grid md={12} style={{ display: 'flex' }}>
-                                <label>Document Number</label>
-                            </Grid>
-                            <Grid md={12} spacing={2} style={{ display: 'flex' }}>
-                                {/* <Grid md={11} className="editSupportingContentLeft"> */}
-                                <Grid md={10} className="editSupportingContentLeft">
-                                    {(props.selectedConfigData.SupportingFlag === "Y" && Number(getRefGridId) != 0) ?
-                                        <TextField
-                                            inputProps={{
-                                                style: {
-                                                    color: "#253746",
-                                                },
-                                                // disable: getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC || getRowWiseRefData.Source === ReferenceDataSourceName.DDTL) ? true : false
-                                            }}
-                                            style={{
-                                                width: "100%"
-                                            }}
-                                            name="DocumentNumber"
-                                            value={getRowWiseRefData && getRowWiseRefData.DocumentNumber}
-                                            onClick={() => openSupInsertPopup(getRowWiseRefData)}
-                                            onChange={handleFieldchange}
-                                            disabled={props.headerData?.EditEnabledFlag == "N" ||
-                                                (getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC ||
-                                                    (selectedReportTemplate === ReportType.DQN && getRowWiseRefData.Source === ReferenceDataSourceName.DDTL)) ? true : false)}
-                                        />
-                                        :
-                                        <TextField
-                                            inputProps={{
-                                                style: {
-                                                    color: "#253746",
-                                                },
-                                                // readOnly: getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC || getRowWiseRefData.Source === ReferenceDataSourceName.DDTL) ? true : false
-                                            }}
-                                            style={{
-                                                width: "100%",
-                                            }}
-                                            name="DocumentNumber"
-                                            value={
-                                                getRowWiseRefData &&
-                                                getRowWiseRefData.DocumentNumber
-                                            }
-                                            onChange={handleFieldchange}
-                                            disabled={props.headerData?.EditEnabledFlag == "N" ||
-                                                (getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC ||
-                                                    (selectedReportTemplate === ReportType.DQN && getRowWiseRefData.Source === ReferenceDataSourceName.DDTL)) ? true : false)}
-                                        />}
-                                </Grid>
-
-                                <Grid item md={2} className="manageSupportingComment">
-                                    <Badge
-                                        id="badge2"
-                                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                        style={{ color: '#737373' }}
-                                        badgeContent={getCommentCount('DocumentNumber')}
-                                        color={handleCommentStatus('DocumentNumber')}
-                                    >
-                                        <IconButton onClick={() => handleOpenHistoryPopup('DocumentNumber', 0, true)}>
-                                            <SpeakerNotesOutlinedIcon />
-                                        </IconButton>
-                                    </Badge>
-                                    {/* </Grid> */}
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                    </Grid>
-                    {/* <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}> */}
-                    <Grid item xs={4} className='grid-item-spacing' style={{ display: 'flex' }}>
-                        <Grid item md={12}>
-                            <Grid md={12} style={{ display: 'flex' }}>
-                                <label>Rev Level</label>
-                            </Grid>
-                            <Grid md={12} spacing={2} style={{ display: 'flex' }}>
-                                {/* <Grid md={11} className="editSupportingContentLeft"> */}
-                                <Grid md={10} className="editSupportingContentLeft">
-                                    <TextField
-                                        inputProps={{
-                                            style: {
-                                                color: "#253746",
-                                            }
-                                        }}
-                                        style={{
-                                            width: "100%"
-                                        }}
-                                        name="RevLevel"
-                                        value={getRowWiseRefData && getRowWiseRefData.RevLevel}
-                                        onChange={handleFieldchange}
-                                        disabled={(props.selectedConfigData.SupportingFlag === "Y" && Number(getRefGridId) != 0)
-                                            || props.headerData?.EditEnabledFlag == "N" ||
-                                            (getRowWiseRefData && (selectedReportTemplate === ReportType.DQN || selectedReportTemplate === ReportType.DDTL) && (getRowWiseRefData.Source === ReferenceDataSourceName.DC || getRowWiseRefData.Source === ReferenceDataSourceName.DDTL) ? true : false)}
-                                    />
-                                </Grid>
-                                <Grid item md={2} className="manageSupportingComment">
-                                    <Badge
-                                        id="badge2"
-                                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                        style={{ color: '#737373' }}
-                                        badgeContent={getCommentCount('RevLevel')}
-                                        color={handleCommentStatus('RevLevel')}
-                                    >
-                                        <IconButton onClick={() => handleOpenHistoryPopup('RevLevel', 0, true)}>
-                                            <SpeakerNotesOutlinedIcon />
-                                        </IconButton>
-                                    </Badge>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                        {/* </Grid> */}
-                    </Grid>
-                </Grid>
-                <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}>
-                    {getRowWiseRefData ?
-                        (<Grid item xs={4} spacing={3} style={{ display: 'flex', paddingTop: '12px' }}>
-                            <Grid item md={12}>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <label>Document Title</label>
-                                </Grid>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <Grid md={11} className="editSupportingContentLeft">
-                                        <Grid style={{ border: "none" }}>
-                                            <TextField
-                                                multiline
-                                                style={{
-                                                    width: "100%",
-                                                }}
-                                                name="Document Title"
-                                                onChange={handleFieldchange}
-                                                disabled={getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC || (selectedReportTemplate === ReportType.DQN && getRowWiseRefData.Source === ReferenceDataSourceName.DDTL)) ? true : false}
-                                                value={
-                                                    getRowWiseRefData && getRowWiseRefData.DocumentTitle
-                                                }
-                                            />
-                                        </Grid>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>)
-                        : null}
-                    {selectedReportTemplate === ReportType.DDTL &&
-                        <Grid item xs={4} className='grid-item-spacing' style={{ display: 'flex' }}>
-                            <Grid item md={12}>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <label>Status</label>
-                                </Grid>
-                                <Grid md={12} spacing={2} style={{ display: 'flex' }}>
-                                    {/* <Grid md={11} > */}
-                                    <Grid md={10} className="editSupportingContentLeft">
-                                        <Autocomplete<GetStatus>
-                                            options={statusList}
-                                            getOptionLabel={(opt) => opt.Status || ""}
-                                            forcePopupIcon={true}
-                                            ListboxProps={{ sx: { fontSize: 14 } }}
-                                            id="txt_auto_purpose"
-                                            value={selectedStatus}
-                                            onChange={handleStatusChange}
-                                            disabled={props.headerData?.EditEnabledFlag == "N"}
-                                            renderInput={(params) => <TextField
-                                                {...params}
-                                                size="small"
-                                                placeholder={'Select Status'}
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    style: { color: "#253746" }
-                                                }}
-                                            />}
-                                            renderOption={(props, item) => (
-                                                <li {...props} key={String(item.StatusId)} style={{ height: 'auto', whiteSpace: "normal", wordBreak: "break-word", color: "#253746", padding: '2px 16px' }}>
-                                                    <ListItemText>{item.Status}</ListItemText>
-                                                </li>
-                                            )}
-                                        />
-                                    </Grid>
-
-                                    <Grid item md={2} className="manageSupportingComment">
-                                        <Badge
-                                            id="badge2"
-                                            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                            style={{ color: '#737373' }}
-                                            badgeContent={getCommentCount('Purpose')}
-                                            color={handleCommentStatus('Purpose')}
-                                        >
-                                            <IconButton onClick={() => handleOpenHistoryPopup('Purpose', 0, true)}>
-                                                <SpeakerNotesOutlinedIcon />
-                                            </IconButton>
-                                        </Badge>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                    }
-                    {/* </Grid> */}
-                    {showReasonDropdown && (
-                        // <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}>
-                        <Grid item xs={4} className='grid-item-spacing' style={{ display: 'flex' }}>
-                            <Grid item md={12}>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <label>Reason Code</label>
-                                </Grid>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    {/* <Grid md={11} className="editSupportingContentLeft"> */}
-                                    <Grid md={10} className="editSupportingContentLeft">
-                                        <Autocomplete<GetReasonCodeData>
-                                            options={getReasonList}
-                                            getOptionLabel={(opt) => opt.ReasonCode || ""}
-                                            forcePopupIcon={true}
-                                            ListboxProps={{ sx: { fontSize: 14 } }}
-                                            id="txt_auto_reason"
-                                            value={selectedReason}
-                                            onChange={handleReasonChange}
-                                            //  disabled={props.headerData?.EditEnabledFlag == "N"}
-                                            renderInput={(params) => <TextField
-                                                {...params}
-                                                size="small"
-                                                placeholder={'Select Reason'}
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    style: { color: "#253746" }
-                                                }}
-                                            />}
-                                            renderOption={(props, item) => (
-                                                <li {...props} key={item.ReasonCodeId} style={{ height: 'auto', whiteSpace: "normal", wordBreak: "break-word", color: "#253746", padding: '2px 16px' }}>
-                                                    <ListItemText>{item.ReasonCode}</ListItemText>
-                                                </li>
-                                            )}
-                                        />
-                                    </Grid>
-                                    {/* </Grid> */}
-                                    <Grid item md={2} className="manageSupportingComment">
-                                        <Badge
-                                            id="badge2"
-                                            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                            style={{ color: '#737373' }}
-                                            badgeContent={getCommentCount('Reason')}
-                                            color={handleCommentStatus('Reason')}
-                                        >
-                                            <IconButton onClick={() => handleOpenHistoryPopup('Reason', 0, true)}>
-                                                <SpeakerNotesOutlinedIcon />
-                                            </IconButton>
-                                        </Badge>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                            {/* </Grid> */}
-                        </Grid>)
-                    }
-                </Grid>
-                {/* Purpose */}
-                {selectedReportTemplate === ReportType.DDTL &&
-                    <Grid container spacing={3} direction={"row"} style={{ margin: '0px', width: '100%' }}>
-                        <Grid item xs={4} className='grid-item-spacing' style={{ display: 'flex' }}>
-                            <Grid item md={12}>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <label>Purpose</label>
-                                </Grid>
-                                <Grid md={12} spacing={2} style={{ display: 'flex' }}>
-                                    {/* <Grid md={11} > */}
-                                    <Grid md={10} className="editSupportingContentLeft">
-                                        <Autocomplete<GetRegulationPurposeData>
-                                            options={getPurposeList}
-                                            getOptionLabel={(opt) => opt.MasterValue || ""}
-                                            forcePopupIcon={true}
-                                            ListboxProps={{ sx: { fontSize: 14 } }}
-                                            id="txt_auto_purpose"
-                                            value={selectedValue}
-                                            onChange={handleReportGroupChange}
-                                            disabled={props.headerData?.EditEnabledFlag == "N"}
-                                            renderInput={(params) => <TextField
-                                                {...params}
-                                                size="small"
-                                                placeholder={'Select Purpose'}
-                                                InputProps={{
-                                                    ...params.InputProps,
-                                                    style: { color: "#253746" }
-                                                }}
-                                            />}
-                                            renderOption={(props, item) => (
-                                                <li {...props} key={item.MasterId} style={{ height: 'auto', whiteSpace: "normal", wordBreak: "break-word", color: "#253746", padding: '2px 16px' }}>
-                                                    <ListItemText>{item.MasterValue}</ListItemText>
-                                                </li>
-                                            )}
-                                        />
-                                    </Grid>
-                                    <Grid item md={2} className="manageSupportingComment">
-                                        <Badge
-                                            id="badge2"
-                                            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                            style={{ color: '#737373' }}
-                                            badgeContent={getCommentCount('Purpose')}
-                                            color={handleCommentStatus('Purpose')}
-                                        >
-                                            <IconButton onClick={() => handleOpenHistoryPopup('Purpose', 0, true)}>
-                                                <SpeakerNotesOutlinedIcon />
-                                            </IconButton>
-                                        </Badge>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                        <Grid item xs={4} className='grid-item-spacing' style={{ display: 'flex' }}>
-                            <Grid item md={12}>
-                                <Grid md={12} style={{ display: 'flex' }}>
-                                    <label>Source</label>
-                                </Grid>
-                                <Grid md={12} spacing={2} style={{ display: 'flex' }}>
-                                    {/* <Grid md={11} className="editSupportingContentLeft"> */}
-                                    <Grid md={10} className="editSupportingContentLeft">
-                                        {(props.selectedConfigData.SupportingFlag === "Y" && Number(getRefGridId) != 0) ?
-                                            <TextField
-                                                inputProps={{
-                                                    style: {
-                                                        color: "#253746",
-                                                    },
-                                                }}
-                                                style={{
-                                                    width: "100%",
-                                                }}
-                                                name="Source"
-                                                value={getRowWiseRefData && getRowWiseRefData.Source}
-                                                disabled={(props.selectedConfigData.SupportingFlag === "Y" && Number(getRefGridId) != 0) ||
-                                                    (getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC || (selectedReportTemplate === ReportType.DQN && getRowWiseRefData.Source === ReferenceDataSourceName.DDTL)) ? true : false)
-                                                }
-                                            /> :
-                                            <TextField
-                                                multiline
-                                                inputProps={{
-                                                    style: {
-                                                        color: "#253746",
-                                                    },
-                                                }}
-                                                style={{
-                                                    width: "100%",
-                                                }}
-                                                name="Source"
-                                                value={
-                                                    getRowWiseRefData && getRowWiseRefData.Source
-                                                }
-                                                onChange={handleFieldchange}
-                                                disabled={props.headerData?.EditEnabledFlag == "N" ||
-                                                    (getRowWiseRefData && (getRowWiseRefData.Source === ReferenceDataSourceName.DC || (selectedReportTemplate === ReportType.DQN && getRowWiseRefData.Source === ReferenceDataSourceName.DDTL)) ? true : false)}
-                                            />}
-                                    </Grid>
-                                    {/* </Grid> */}
-                                    <Grid item md={2} className="manageSupportingComment">
-                                        <Badge
-                                            id="badge2"
-                                            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                                            style={{ color: '#737373' }}
-                                            badgeContent={getCommentCount('Source')}
-                                            color={handleCommentStatus('Source')}
-                                        >
-                                            <IconButton onClick={() => handleOpenHistoryPopup('Source', 0, true)}>
-                                                <SpeakerNotesOutlinedIcon />
-                                            </IconButton>
-                                        </Badge>
-                                    </Grid>
-                                </Grid>
-                            </Grid>
-                        </Grid>
-                    </Grid>
-                }
-                {!(new CommonFunction().IsEASAReport()) && getRowWiseRefData ? <KendoEditorSection editorKey={editorKey} getCommentCount={getCommentCount} handleOpenHistoryPopup={handleOpenHistoryPopup} editorCommentsDtl={editorCommentsDtl} reportLevelTagList={reportLevelTagList} refreshAllEditor={refreshAllEditor} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup} label="Description / Notes" columnName='Notes' targetContent='Notes' onChange={handleChange} content={getRowWiseRefData && getRowWiseRefData.Notes ? getRowWiseRefData.Notes : "<p></p>"} reportId={reportId} props={props} tabName={props.selectedConfigData.TableCode} tableCode={getRowWiseRefData.TableCode} saveTabDetails={saveActiveSectionDetails} excludeToolbarItemArray={[]} rowId={getRefGridId} /> : null}
-            </div>
-            {openHistoryPopup && <CommentHistoryPopup isControlLevelComment={isControlLevelComment} selectedTabRowId={null} selectedRowId={null} editFileCount={null} IsBadgeIconClick={true} IsNonDynamicTab={true} addNewComment={addNewComment} updateAddNewComment={updateAddNewComment} CompGridDetails={null} contentID={contentID} openHistoryPopup={openHistoryPopup} handleCloseHistoryPopup={handleCloseHistoryPopup}
-                RptId={reportId} item={null} TabSectionId={null} headerData={props.headerData} controlName={controlName} getFormatedHtmlData={null} getFormatedEditorHtml={null} showEditModeForCommentID={0} comment={null} commetType={null} SectionSerialNumber={""} seletedTargetText={null} addCommentAsAuthor={false} currentContentID={0} openCommentHistoryPopup={null} handleCloseCommentHistoryPopup={null} currentTabComments={editorCommentsDtl} showReplyCommentId={0} tabName={props.selectedConfigData.TableCode} />}
-            {openSupportingInsertPopup && <SupportingInsertPopupData supGridLenght={0} checkedItem={[]} isOpen={openSupportingInsertPopup} onCloseSupModelPopup={closeSupInsertPopup} IsManageSupTab={true} configRefSourceId={props.selectedConfigData.SourceId} refTableCode={props.selectedConfigData.TableCode} refGridTitle={props.selectedConfigData.Title} sequenceStartWith={props.selectedConfigData.SequenceStartWith} isOpenedFromDocumentNumber={true} existingData={existData} />}
-        </div>
-    );
-});
-
-export default ManageReferenceData;
