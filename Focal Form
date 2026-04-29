@@ -1,10 +1,38 @@
+singleSpa.navigateToUrl(
+  WorkAppRoutes.FIND_CSR.APP_ROUTE +
+  "/#" +
+  WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
+    .replace(":groupId", groupId)
+    .replace(":registerId", projectRegisterId)
+);
+
 setTimeout(() => {
+
+  let attempts = 0;
+
   const interval = setInterval(() => {
-    const btn = document.getElementById("createNewBtn");
+    const btn = document.getElementById("createBtn");
 
     if (btn) {
-      btn.click();
+      console.log("Create button found ✅");
+
+      btn.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+        })
+      );
+
       clearInterval(interval);
     }
+
+    attempts++;
+    if (attempts > 25) {
+      clearInterval(interval);
+      console.warn("Create button not triggered ❌");
+    }
+
   }, 200);
-}, 800);
+
+}, 1000);
