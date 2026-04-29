@@ -1,18 +1,28 @@
-    {
-        "TemplateId": 66,
-        "TemplateTitle": "Classification Record",
-        "TempVersion": "0",
-        "DocFormat": "BIL-XXXXX-M-CCN-nnn",
-        "TemplateSequence": 0,
-        "ItarFlag": "N",
-        "GroupId": 19,
-        "DocFormatWithProjNo": null,
-        "MasterType": "Classification Record",
-        "GroupDesc": null,
-        "Designation": "CCN"
-    },
-  storageServ.setApplicationDataByKey(
-        `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
-        "reportTemplate",
-        reportTemplate
-    );
+  else if (tempWorkAppData.hasOwnProperty("Action") && tempWorkAppData["Action"] == "CCL_CSR_Create_New_Navigation") {
+        let projectRegisterId = tempWorkAppData["Detail"]["projectRegisterId"];
+        let groupId = tempWorkAppData["Detail"]["groupId"];
+        const templateName = tempWorkAppData["Detail"]["templateName"];
+        let templateId = tempWorkAppData["Detail"]["templateId"];
+        let storageServ = new StorageService();
+          const reportTemplate = {
+            "TemplateId": templateId,          
+            "GroupId": groupId,
+        };
+        storageServ.setApplicationDataByKey(
+            `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+            "reportTemplate",
+            reportTemplate
+        );
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`, 'selectedeasareporttype', templateName);
+        new easaMenuSubmenu().setMenuSectionVisibility(true);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveSubMenu', groupId);
+        storageServ.setApplicationDataByKey(`${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`, 'easaActiveMenu', "#nav-OSS-easaDesignDoc-tab");
+        const userTokenTemp = new UserToken();
+        userTokenTemp.setGroupBU(GroupBU.EASA);
+        singleSpa.navigateToUrl(
+            WorkAppRoutes.FIND_CSR.APP_ROUTE +
+            "/#" +
+            WorkAppRoutes.FIND_CSR.CSR_REPORT
+            + "/" + '0' + '/tab/' + '-1');
+    }
+}
