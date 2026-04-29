@@ -1,38 +1,13 @@
-singleSpa.navigateToUrl(
-  WorkAppRoutes.FIND_CSR.APP_ROUTE +
-  "/#" +
-  WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
-    .replace(":groupId", groupId)
-    .replace(":registerId", projectRegisterId)
-);
-
-setTimeout(() => {
-
-  let attempts = 0;
-
-  const interval = setInterval(() => {
-    const btn = document.getElementById("createBtn");
-
-    if (btn) {
-      console.log("Create button found ✅");
-
-      btn.dispatchEvent(
-        new MouseEvent("click", {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-        })
-      );
-
-      clearInterval(interval);
-    }
-
-    attempts++;
-    if (attempts > 25) {
-      clearInterval(interval);
-      console.warn("Create button not triggered ❌");
-    }
-
-  }, 200);
-
-}, 1000);
+    {
+        "TemplateId": 66,
+        "TemplateTitle": "Classification Record",
+        "TempVersion": "0",
+        "DocFormat": "BIL-XXXXX-M-CCN-nnn",
+        "TemplateSequence": 0,
+        "ItarFlag": "N",
+        "GroupId": 19,
+        "DocFormatWithProjNo": null,
+        "MasterType": "Classification Record",
+        "GroupDesc": null,
+        "Designation": "CCN"
+    },
