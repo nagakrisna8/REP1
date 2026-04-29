@@ -1,14 +1,15 @@
-http://localhost:3030/dc/find-csr/#/csr-list-search/:groupId/:registerId0/tab/-1
-
 const navigateToCSRSearchPage = (rptId: number) => {
             const storageServiceTemp = new StorageService();
-           // const projRegId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
-           // const groupId = 19;
+            const projectRegisterId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+            const groupId = 19;
             const templateId = 2;
             const templateName = "Compliance Checklist";
+            console.log(projectRegisterId, 'projectRegisterId');
             let dataToShare = {
                 Action: 'CCL_CSR_CCN_Navigation',
-                Detail: {                  
+                Detail: {   
+                    projectRegisterId,
+                    groupId,              
                     templateId,
                     templateName,
                     reportId: rptId,
