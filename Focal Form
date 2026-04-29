@@ -11,3 +11,8 @@
         "GroupDesc": null,
         "Designation": "CCN"
     },
+  storageServ.setApplicationDataByKey(
+        `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+        "reportTemplate",
+        reportTemplate
+    );
