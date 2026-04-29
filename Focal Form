@@ -1,21 +1,61 @@
-const navigateToCSRSearchPage = (rptId: number) => {
-            const storageServiceTemp = new StorageService();
-            const projectRegisterId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
-            const groupId = 19;
-            const templateId = 2;
-            const templateName = "Compliance Checklist";
-            console.log(projectRegisterId, 'projectRegisterId');
-            let dataToShare = {
-                Action: 'CCL_CSR_CCN_Navigation',
-                Detail: {   
-                    projectRegisterId,
-                    groupId,              
-                    templateId,
-                    templateName,
-                    reportId: rptId,
-                }
-            };
-            let appDataEvent = new ShellEventRegister().getShellEvent();
-            appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
-            window.dispatchEvent(appDataEvent);
-        };
+const data = tempWorkAppData?.detail || tempWorkAppData;
+
+if (data?.Action === "CCL_CSR_CCN_Navigation") {
+
+    let projectRegisterId = data.Detail.projectRegisterId;
+    let groupId = data.Detail.groupId;
+    const templateName = data.Detail.templateName;
+
+    const storageServ = new StorageService();
+
+    // ✅ store required data
+    storageServ.setApplicationDataByKey(
+        `${process.env.REACT_APP_ROOT_NAME}-${process.env.REACT_APP_FIND_CSR}`,
+        'selectedeasareporttype',
+        templateName
+    );
+
+    storageServ.setApplicationDataByKey(
+        `${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`,
+        'easaActiveSubMenu',
+        groupId
+    );
+
+    storageServ.setApplicationDataByKey(
+        `${process.env.REACT_APP_ROOT_NAME}-easaActiveSubMenu`,
+        'easamyworkspaceprojectid',
+        projectRegisterId
+    );
+
+    // ✅ Step 1: Navigate to list page (context)
+    singleSpa.navigateToUrl(
+        WorkAppRoutes.FIND_CSR.APP_ROUTE +
+        "/#" +
+        WorkAppRoutes.FIND_CSR.CSR_LIST_SEARCH
+            .replace(":groupId", groupId)
+            .replace(":registerId", projectRegisterId)
+    );
+
+    // ✅ Step 2: Trigger "Create New" button (reliable)
+    setTimeout(() => {
+
+        let attempts = 0;
+
+        const interval = setInterval(() => {
+            const btn = document.getElementById("createNewBtn"); // 👈 your button id
+
+            if (btn) {
+                btn.click();
+                clearInterval(interval);
+            }
+
+            attempts++;
+            if (attempts > 20) { // ~4 seconds max
+                clearInterval(interval);
+                console.warn("Create New button not found");
+            }
+
+        }, 200);
+
+    }, 800); // wait for page load
+}
