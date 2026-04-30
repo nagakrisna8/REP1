@@ -1,69 +1,663 @@
-import React, { memo, useEffect, useState, useRef } from "react";
-import { Grid as DataGrid, GridColumn } from "@progress/kendo-react-grid";
-import { State, process } from "@progress/kendo-data-query";
-import EasaListService from "../../EasaRegisterListService";
-import "./FocalList.scss";
-import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
-import { Button, Divider, Typography } from "@mui/material";
+import * as ReactDOM from "react-dom";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
-const AnyGrid = DataGrid as any;
+import {
+    Grid as DataGrid,
+    GridColumn,
+    GridColumnMenuProps,
+    GridColumnMenuFilter,
+    GridDataStateChangeEvent,
+    GridColumnMenuSort,
+    GridColumnMenuCheckboxFilter,
+    GridCellProps,
+    GridToolbar,
+    getSelectedState,
+    isColumnMenuFilterActive,
+    isColumnMenuSortActive,
+} from "@progress/kendo-react-grid";
+import { process as kendoProcess, State, getter } from "@progress/kendo-data-query";
+import { useNavigate, useParams } from "react-router-dom";
+import { Button, Card, CardContent, Container, FormControl, Grid, Menu, MenuItem, OutlinedInput, Select, Typography } from "@mui/material";
+import { parameterObj, CSRHeaderData, FilterParam, ParameterObject, CSRApprovalUserList, ControlVisibilityDtls, ReportStepId, TempTemplateDetails, EasaMasterType, ReportType, ReportStages, CSRHeaderDataForCopy, CCLRptTemplate, RevisionDetails, Revisions } from "../../../../model/Model";
+import PathConstants from "../../../../routes/PathConstants";
+import { GridHelper } from './GridHelper';
+import CSRListService from "./CSRListService";
+import { DatePicker } from '@progress/kendo-react-dateinputs';
+import { useDispatch } from "react-redux";
+import { showSnackbar } from "../../../core/snackbar/CustomSnackBarSlice";
+import { userDefinedConfirm } from "../../../../utils/ConfirmDialog";
+import StorageService from "../../../../utils/StorageService";
+import EnvDetail from "../../../../utils/EnvDetail";
+import CreateRevisionPopup from "../create-revision-popup/CreateRevisionPopup";
+import CommonFunction from "../../../../utils/CommonFunction";
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+import DeleteSharpIcon from '@mui/icons-material/DeleteSharp';
+import LibraryAddOutlinedIcon from '@mui/icons-material/LibraryAddOutlined';
+import WorkFlowPopup from "../csr-list/wkf-popup/WorkFlowPopup";
+import UserToken from "../../../../utils/UserToken";
+import CreateCopyPopup from "../create-copy-popup/CreateCopyPopup";
+import FeedOutlinedIcon from '@mui/icons-material/FeedOutlined';
+import { logPageViewEventWithData, adobeWindowData, logFilterAction } from "@boeing-fsit/react-oss-adobe-analytics-lib";
+import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import ShellEventRegister from "../../../../utils/ShellEventRegister";
+import DrawingAttachPopupService from "../csr-details/general-tab/DrawingAttachPopup/DrawingAttachPopupService";
+import { filterIcon } from "@progress/kendo-svg-icons";
+import { CopyReportPopup } from "../csr-details/copy-report/CopyReportPopup";
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CopyReportPopupServices from "../csr-details/copy-report/CopyReportPopupServices";
+const AnyGrid = Grid as any;
 
-interface FocalData {
-    NAME: string;
-    ADDRESS: string;
-    PHONE: number;
-    DEPARTMENT: string;
-    EMAIL: string;
-}
+const ColumnMenu = props => {
+    return <div>
+        <GridColumnMenuSort {...props} />
+        <GridColumnMenuFilter {...props} expanded={true} />
+    </div>;
+};
+const modalStyle = {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%)',
+    width: 500,
+    bgcolor: 'background.paper',
+    boxShadow: 24,
+    borderRadius: '0.5rem',
+    p: 0,
+};
 
-interface FocalListProps {
-    orgName: number;
-    orgType: number;
-    onCreateFocal: (orgId: number, orgTypeId: number) => void
-}
-
-const FocalList: React.FC<FocalListProps> = memo(({ orgName, orgType, onCreateFocal }) => {
-
-    const [focalListData, setFocalListData] = useState<FocalData[]>([]);
-    const [dataState, setDataState] = useState<State>({});
-    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+var CsrListDetails: CSRHeaderData[] = [];
+var CsrApprovalUserList: CSRApprovalUserList[] = [];
+var CsrListNewDetails: CSRHeaderData[] = [];
+var selectedCsrListDtls: parameterObj[] = [];
+var UnSelectedCsrListDtls: parameterObj[] = [];
+var headerSelected = false;
+var disablNo = 0;
+const DATA_ITEM_KEY: string = "RPT_ID";
+const idGetter = getter(DATA_ITEM_KEY);
+const CSRList = ({ pmdbProjectId, getItarProjectFlag, selectedDisciplinId, csrWorkAppFlag }) => {
+    const dispatch = useDispatch();
+    const [currentUserBemsId, setCurrentUserBemsId] = useState(0);
+    const currentUserBemsIdRef = useRef(currentUserBemsId);
+    const SELECTED_FIELD = 'selected';
+    const [SelectionValue, setSelectionValue] = useState(false);
+    const [multipleSelected, setmultipleSelected] = useState(false);
+    const [isButtonRevDisabled, setisButtonRevDisabled] = useState(true);
+    const [isButtonDelDisabled, setisButtonDelDisabled] = useState(true);
+    const [isButtonDrawingRevDisabled, setisButtonDrawingRevDisabled] = useState(true);
+    const [selectedItems, setSelectedItems] = useState(0);
+    const [open, setOpen] = useState(false);
+    const { projectId } = useParams();
+    const { groupId } = useParams();
+    const { registerId } = useParams();
+    const [hasContent, setHasContent] = useState<any>(false);
+    const navigate = useNavigate();
+    const [data, setData] = useState<any>();
+    const [tableDataLength, setTableDataLength] = useState<number | undefined>(0);
+    const [dataState, setDataState] = React.useState<State>({});
+    const [resultState, setResultState] = useState<any[]>(CsrListDetails);
+    const [gridWidth, setGridWidth] = useState<any>();
+    const [screenPercentage, setScreenPercentage] = useState(0);
+    const [defaultWindowWidth, setDefaultWindowWidth] = useState(
+        window.innerWidth
+    );
+    const [gridHeight, setGridHeight] = useState<any>(window.innerHeight);
+    const [gridRowHeight, setGridRowHeight] = useState(30);
+    const [windowHeight, setWindowHeight] = useState(window.innerHeight);
     const [totalColumnFixedWidth, setTotalColumnFixedWidth] = useState(0);
-    const [activeTab, setActiveTab] = useState<"list" | "add">("list");
-
-    const fetchFocalList = async (orgType: number, organization: number) => {
-
-
-
-        const masterdataType = 4;
-
-        try {
-
-            const response =
-                await EasaListService.getAdminMasterDetailsTypeFocals(
-                    masterdataType,
-                    orgType,
-                    organization,
-                );
-
-            const result: FocalData[] = response?.data.map((x: any) => ({
-                NAME: x.NAME,
-                ADDRESS: x.ADDRESS,
-                PHONE: x.PHONE,
-                DEPARTMENT: x.POSITION,
-                EMAIL: x.EMAIL
-            }));
-
-            setFocalListData(result);
-
-        } catch (error) {
-            console.error("Error fetching focal list:", error);
-        }
+    const [calculatedDynamicColWidth, setCalculatedDynamicColWidth] = useState(0);
+    const gridRef = useRef<any>(null);
+    const [reportTypeList, setReportTypeList] = useState<string[]>([]);
+    const commonFunction = new CommonFunction();
+    var storageService = new StorageService();
+    const [getSelectedDisciplined, setSelectedDisciplined] = useState('');
+    const [isCurrentUserUSPerson, setIsCurrentUserUSPerson] = useState(false);
+    const [total, setTotal] = useState(0);
+    const [controlVisibilityDtls, setControlVisibilityDtls] = useState<ControlVisibilityDtls[]>([]);
+    const [templatesPresent, setTemplatePresent] = useState<boolean>(false);
+    const [selectedReportType, setSelectedReportType] = useState("");
+    const [selectedReportTemplate, setSelectedReportTemplate] = useState({})
+    const [reportTypes, setReportTypes] = useState([]);
+    const [copyDisable, setCopyDisable] = useState<boolean>(true);
+    // const checkDisciplinedValue = () => {
+    //     const selectedDisciplined = storageService.getSelectedDiscipline();
+    //     if (selectedDisciplined == "ECS" || selectedDisciplined == "Electrical") {
+    //         return false;
+    //     } else {
+    //         return true;
+    //     }
+    // }
+    const [shellClientHeight, setShellClientHeight] = useState(
+        document?.getElementById("shell-main-section")?.clientHeight
+    );
+    const [shellHeaderSectionHeight, setShellHeaderSectionHeight] = useState(
+        document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+    );
+    const [shellOssMenubreadcrumsHeight, setShellOssMenubreadcrumsHeight] =
+        useState(
+            document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+        );
+    const [shellOssHeaderMenuSectionHeight, setShellOssHeaderMenuSectionHeight] =
+        useState(document?.getElementById("oss-header-menu-setion")?.clientHeight);
+    const [shellWorkAppContainerMaxHeight, setShellWorkAppContainerMaxHeight] =
+        useState(0);
+    const [shellFooterHeight, setShellFooterHeight] = useState(document?.getElementsByTagName('footer')[0]?.clientHeight);
+    const [searchFieldHeight, setSearchFieldHeight] = useState(document?.getElementsByClassName('csr-search-row')[0]?.clientHeight);
+    const [easaMasterType, setEasaMasterType] = useState("");
+    const [templates, setTemplates] = useState<any[]>([]);
+    const [ccldisplay, setCclDisplay] = useState(false);
+    const [ccnDisplay, setCcnDisplay] = useState(false);
+    const [cpDisplay, setCpDisplay] = useState(false);
+    const [revisions, setRevisions] = useState<Revisions[]>([]);
+        const [selectedProjectNumber, setSelectedProjectNumber] = useState<string>("");
+    const columnProps = field => {
+        return {
+            field: field,
+            columnMenu: ColumnMenu,
+            headerClassName: isColumnActive(field, dataState) ? 'active' : ''
+        };
     };
+    useEffect(() => {
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        headerSelected = false;
+        disablNo = 0;
+        setTimeout(() => {
+            let userToken = new UserToken();
+            let usPersonFlag = userToken.isCurrentUserUSPerson();
+            setIsCurrentUserUSPerson(usPersonFlag);
+        });
+        if (!csrWorkAppFlag) {
+            storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrWorkAppFlag', false)
+        }
+        storageService.removeApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'lastDynamicTabSelecetd');
+    }, []);
+
+    const sendEasaReportDataToShell = (regProjectId, reportType, rev) => {
+        let dataToShare = {
+            AppName: EnvDetail.AppName,
+            Action: 'CSR_EASA_Breadcrum_Details',
+            Detail: {
+                registerNo: regProjectId ? regProjectId : "",
+                reportType: reportType ? reportType : "",
+                groupId: groupId,
+                registerId: registerId,
+                revision: rev,
+            }
+        };
+        let appDataEvent = new ShellEventRegister().getShellEvent();
+        appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+        window.dispatchEvent(appDataEvent);
+    };
+
+    useEffect(() => {
+        loadTempleTypes();
+        // fetchData(dataState);
+        CSRListService.getReportNameList().then(reportTypeListResult => {
+            setReportTypeList(reportTypeListResult.data);
+        });
+        CSRListService.getControlVisibilityDetails("PROJECT").then(response => {
+            if (response.data && response.data.length) {
+                setControlVisibilityDtls(response.data);
+            }
+        });
+        CSRListService.getdefaultreportgroups().then(response => {
+            if (response.data && response.data.length) {
+                setTemplatePresent(true);
+            }
+            else {
+                setTemplatePresent(false);
+            }
+        });
+        // getting Easa report details
+        let currentBUId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-Shell`, 'currentbusinessunitid');
+        let checkRegisterId = registerId ? Number(registerId) : 0;
+        let getCurProjectId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno'); //?.split(':')[1]?.trim();
+        if (currentBUId == 2 && checkRegisterId != 0) { // check for EASA workspace
+            CSRListService.getEasaReportType(Number(groupId), checkRegisterId).then((response) => {
+                if (response && response.data) {
+                    sendEasaReportDataToShell(getCurProjectId, response.data[0]?.ReportType, response.data[0]?.Revision);
+                }
+            });
+        }
+    }, [projectId, groupId, registerId]);
+
+    useEffect(() => {
+        let userToken = new UserToken();
+        let bemsId = userToken.getUserBemsId();
+        const newBemsId = Number(bemsId);
+        setCurrentUserBemsId(newBemsId);
+        currentUserBemsIdRef.current = newBemsId;
+        const getSelectedDisciplined = storageService.getSelectedDiscipline();
+        setSelectedDisciplined(getSelectedDisciplined);
+    }, [currentUserBemsId]);
+
+    useEffect(() => {
+        if (projectId) {
+            const adobeData: adobeWindowData = {
+                key: "adobe-FINDCSR-CSRListGrid",
+                pageComponentData: {
+                    projectId: projectId,
+                }
+            }
+
+            logPageViewEventWithData(adobeData)
+        }
+    }, [projectId])
+
+
+    const loadTempleTypes = async () => {
+        const registerId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+        const easaWorkspaceId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno')?.split(':')[1]?.trim();
+        const selectedDiscipline = storageService.getApplicationDataByKey(`${process.env.REACT_PARENT_APP_NAME}-Shell`, 'currentdiscipline');
+        let templateDetails: TempTemplateDetails = {
+            RegisterProjectId: registerId?.toString(),
+            EasaProjectNo: easaWorkspaceId?.toString(),
+            selectedDisciplineName: selectedDiscipline,
+            groupId: Number(groupId),
+            CsrLastCountFlag: 0,
+
+        }
+        const res = await CSRListService.GetDefaultTemplates(templateDetails)
+        const data = res?.data ?? [];
+
+        setTemplates(data);
+        const types = data.map(item => item.TemplateTitle).filter(Boolean);
+        setReportTypes(types);
+
+        const storage = new StorageService();
+        const savedType = storage.getApplicationDataByKey(
+            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+            'SelectedEasaReportType'
+        );
+
+        if (savedType) {
+            const found = data.find(item => item.TemplateTitle === savedType);
+            if (found) {
+
+                setSelectedReportTemplate(found);
+                setSelectedReportType(found.TemplateTitle);
+                setEasaMasterType(found.MasterType);
+                return;
+            }
+        }
+        setSelectedReportType(data[0].TemplateTitle);
+        setSelectedReportTemplate(data[0]);
+        setEasaMasterType(data[0].MasterType);
+
+    };
+
+    const handleReportTypeChange = async (e) => {
+        setSelectedReportType(e.target.value);
+        const templateTitle = templates.find(x => x.TemplateTitle == e.target.value)
+        if (templateTitle) {
+            setSelectedReportTemplate(templateTitle);
+            setEasaMasterType(templateTitle.MasterType);
+        }
+        // User's selection so it can be restored when returning to the grid
+        new StorageService().setApplicationDataByKey(
+            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+            'SelectedEasaReportType',
+            e.target.value
+        );
+    };
+
+    //FetchData if SelectedReportType Changes
+    useEffect(() => {
+        setResultState([]);
+        setSelectionValue(false);
+        if (selectedReportType) {
+            fetchData({});
+        }
+    }, [selectedReportType]);
+
+    const uncheckHeaderCheckBox = () => {
+        headerSelected = false;
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        disablNo = disablNo - 1;
+
+        setSelectedItems(disablNo);
+        setisButtonRevDisabled(true);
+        setisButtonDelDisabled(true);
+        setisButtonDrawingRevDisabled(true);
+        setSelectionValue(false);
+    }
+    useEffect(() => {
+        CsrListDetails = [];
+        CsrListNewDetails = [];
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        headerSelected = false;
+        disablNo = 0;
+        setSelectionValue(false);
+        // Reset Flag on First load
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `IsTabDirty`, false);
+
+        // ---- Resetting document number/report id on first load for reading in shell level
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `docnumber`, '');
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocRev`, '');
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `reportid`, '');
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `easaRegisterCreateNew`, false);
+        storageService.setApplicationDataByKey(
+            `${EnvDetail.ParentAppName}-EasaRegisterWorkApp`,
+            `easaRegisterDetails`,
+            {
+                isEasaRegister: false,
+                registerType: "",
+                selectedReportTemplate: {},
+                selectedReportGroup: {},
+            }
+        );
+    }, []);
+
+    const isColumnActive = (field, dataState) => {
+        return isColumnMenuFilterActive(field, dataState.filter) || isColumnMenuSortActive(field, dataState.sort);
+    };
+
+
+    const onHeaderSelectionChange = useCallback(event => {
+        const checkboxElement = event.syntheticEvent.target;
+        const checked = checkboxElement.checked;
+        const newSelectedState = {};
+        headerSelected = checked;
+        if (checked == true) {
+            disablNo = disablNo + 1;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(false);
+            setisButtonDelDisabled(false);
+        } else {
+            disablNo = 0;;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(true);
+            setisButtonDelDisabled(true);
+        }
+        var newData = CsrListDetails.map(item => {
+            const isInRecords = event.dataItems.some(rec => rec.RPT_ID === item.RPT_ID);
+            return {
+                ...item,
+                [SELECTED_FIELD]: isInRecords ? checked : item[SELECTED_FIELD] //only update if rec is in evnt
+            };
+        });
+        setResultState(newData);
+        CsrListDetails = newData;
+
+
+        selectedCsrListDtls = [];
+        UnSelectedCsrListDtls = [];
+        let isAuthorInCreateState = false;
+        if (headerSelected) {
+
+            setmultipleSelected(true);
+            setSelectionValue(checked);//update headercheckbox state true
+            setisButtonRevDisabled(true);
+            CsrListDetails?.map(item => {
+                if (item.selected) {
+                    selectedCsrListDtls.push(item);
+                }
+            });
+            const selectedDataItems = Array.isArray(selectedCsrListDtls) ? selectedCsrListDtls : [];
+            isAuthorInCreateState = selectedDataItems.every(item =>
+                item.BemsId == currentUserBemsIdRef.current &&
+                (item.WorkFlowStep == ReportStepId.CREATE_STEP)
+            );
+
+        }
+        else {
+            setmultipleSelected(false);
+            setSelectionValue(checked);//update headercheckbox state false
+            setisButtonDelDisabled(true);
+            CsrListDetails?.map(item => {
+                UnSelectedCsrListDtls.push(item);
+            });
+            const selectedDataItems = Array.isArray(UnSelectedCsrListDtls) ? UnSelectedCsrListDtls : [];
+            isAuthorInCreateState = selectedDataItems.every(item => {
+                // Check that item is neither null nor undefined before accessing properties
+                if (item && item.BemsId && item.WorkFlowStep) {
+                    return item?.BemsId == currentUserBemsIdRef.current &&
+                        (item.WorkFlowStep == ReportStepId.CREATE_STEP);
+                }
+                return false; // If item is null or its properties are missing, return false
+            });
+
+        }
+        if (isAuthorInCreateState) {
+            setisButtonDelDisabled(false);
+        }
+        else {
+            setisButtonDelDisabled(true);
+        }
+        setisButtonDrawingRevDisabled(true);
+    }, []);
+
+    const onSelectionChange = useCallback(event => {
+        const checkboxElement = event.syntheticEvent.target;
+        const checked = checkboxElement.checked;
+        let isAuthorInCreateState = false;
+        if (checked == true) {
+            disablNo = disablNo + 1;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(false);
+            setisButtonDelDisabled(false);
+        } else {
+            disablNo = disablNo - 1;;
+            setSelectedItems(disablNo);
+            setisButtonRevDisabled(true);
+            setisButtonDelDisabled(true);
+        }
+        var newData: CSRHeaderData[] = [];
+
+        newData = CsrListDetails.map(item => ({
+            ...item,
+            [SELECTED_FIELD]: (event.dataItem.RPT_ID == item.RPT_ID) ? checked : item.selected
+        }));
+        setResultState(newData);
+
+        CsrListDetails = newData;
+        if (false) {//headerSelected
+            newData.forEach(item => {
+                if (item.selected == false && checked == false) {
+                    var parameterObject: parameterObj = {
+                        RPT_ID: item.RPT_ID,
+                        selected: item.selected,
+                        BemsId: item.BemsId,
+                        RELEASE_DATE: item.RELEASE_DATE,
+                        WorkFlowStep: item.WorkFlowStep,
+                        TemplateId: item.TemplateId
+                    };
+                    if (UnSelectedCsrListDtls.length > 0)
+                        UnSelectedCsrListDtls = UnSelectedCsrListDtls.filter(item1 => (item1.RPT_ID != item.RPT_ID));
+                    UnSelectedCsrListDtls.push(parameterObject);
+                }
+            });
+
+            const updatedArray2 = UnSelectedCsrListDtls.map(item2 => {
+                const matchingItem1 = newData.find(item1 => (item1.RPT_ID == item2.RPT_ID));
+                return matchingItem1 ? { ...item2, ...matchingItem1 } : item2;
+            });
+            UnSelectedCsrListDtls = [];
+            selectedCsrListDtls = [];
+            headerSelected = false;
+            setSelectionValue(false);
+            updatedArray2.forEach(item => {
+                if (!item.selected) {
+                    UnSelectedCsrListDtls.push(item);
+
+                }
+            });
+
+        }
+        else {
+            newData.forEach(item => {
+                if (item.selected) {
+                    let parameterObject: parameterObj = {
+                        RPT_ID: item.RPT_ID,
+                        selected: item.selected,
+                        BemsId: item.BemsId,
+                        RELEASE_DATE: item.RELEASE_DATE,
+                        WorkFlowStep: item.WorkFlowStep,
+                        STATE: item.STATE,
+                        TemplateId: item.TemplateId,
+                        TemplateTitle: item.TemplateTitle,
+                        DisciplineId: item.DisciplineId
+                    };
+                    if (selectedCsrListDtls.length > 0)
+                        selectedCsrListDtls = selectedCsrListDtls.filter(item1 => (item1.RPT_ID != item.RPT_ID));
+                    selectedCsrListDtls.push(parameterObject);
+                }
+            });
+
+            const updatedArray2 = selectedCsrListDtls.map(item2 => {
+                const matchingItem1 = newData.find(item1 => (item1.RPT_ID == item2.RPT_ID));
+                return matchingItem1 ? { ...item2, ...matchingItem1 } : item2;
+            });
+            UnSelectedCsrListDtls = [];
+            selectedCsrListDtls = [];
+            updatedArray2.forEach(item => {
+                if (item.selected) {
+                    selectedCsrListDtls.push(item);
+
+                }
+            });
+            const selectedDataItems = Array.isArray(updatedArray2) ? updatedArray2.filter(item => item.selected) : [];
+            if (selectedDataItems.length > 0) {
+                isAuthorInCreateState = selectedDataItems.every(item =>
+                    item.BemsId == currentUserBemsIdRef.current &&
+                    (item.WorkFlowStep == ReportStepId.CREATE_STEP)
+                );
+            }
+            if (selectedCsrListDtls?.length > 1) {
+                setmultipleSelected(true);
+            }
+            else {
+                setmultipleSelected(false);
+            }
+
+            if (newData.length == selectedCsrListDtls.length) {
+                setSelectionValue(true);
+            }
+            else {
+                headerSelected = false;
+                setSelectionValue(false);
+            }
+            if (selectedCsrListDtls.length == 1) {
+                let tempSelectedCSR = selectedCsrListDtls[0] as CSRHeaderData;
+                tempSelectedCSR.RELEASE_DATE != null ? setisButtonRevDisabled(false) : setisButtonRevDisabled(true);
+                setisButtonDelDisabled(false);
+                if (tempSelectedCSR.CurrentState &&
+                    tempSelectedCSR.CurrentState.toLowerCase() == "initiate review"
+                    && tempSelectedCSR.PendingWithBemsId.includes(currentUserBemsId)
+                    && currentUserBemsId != tempSelectedCSR.AuthorBemsId
+                    && tempSelectedCSR.WorkFlowCycle == 1) {
+                    setisButtonDrawingRevDisabled(false);
+                }
+                else {
+                    setisButtonDrawingRevDisabled(true);
+                }
+            }
+            else if (selectedCsrListDtls.length < 1) {
+                setisButtonDelDisabled(true);
+                setisButtonDrawingRevDisabled(true);
+            }
+            else {
+                setisButtonDelDisabled(false);
+                setisButtonRevDisabled(true);
+                setisButtonDrawingRevDisabled(true);
+            }
+
+            if (isAuthorInCreateState) {
+                setisButtonDelDisabled(false);
+            }
+            else {
+                setisButtonDelDisabled(true);
+            }
+        }
+
+
+    }, []);
+
+
+    // to set the height of each container on component render
+    useEffect(() => {
+        if (document?.getElementById('shell-main-section') != undefined) {
+            setShellHeaderSectionHeight(document?.getElementsByClassName('shell-header-setion')[0]?.clientHeight)
+            setShellOssMenubreadcrumsHeight(document?.getElementsByClassName('oss-menu-breadcrums')[0]?.clientHeight)
+            setShellOssHeaderMenuSectionHeight(document?.getElementById('oss-header-menu-setion')?.clientHeight)
+            setShellFooterHeight(document?.getElementsByTagName('footer')[0]?.clientHeight)
+            setSearchFieldHeight(document?.getElementsByClassName('csr-search-row')[0]?.clientHeight);
+        }
+    })
+    useEffect(() => {
+        let additionalHeight = (pmdbProjectId > -1 && window.innerHeight > 450) ? searchFieldHeight + 50 : 0;
+        let additionalGridHeight = (pmdbProjectId > -1) ? ((window.innerHeight > 450) ? 55 : 400) : 40;
+        setShellWorkAppContainerMaxHeight(
+            shellClientHeight != undefined &&
+                shellOssHeaderMenuSectionHeight != undefined
+                ? shellClientHeight -
+                (shellHeaderSectionHeight +
+                    shellOssMenubreadcrumsHeight +
+                    shellOssHeaderMenuSectionHeight + shellFooterHeight + additionalHeight) + additionalGridHeight
+
+                : 0
+        );
+    }, [
+        shellClientHeight,
+        shellHeaderSectionHeight,
+        shellOssMenubreadcrumsHeight,
+        shellOssHeaderMenuSectionHeight,
+        shellFooterHeight,
+        setSearchFieldHeight
+    ]);
+    useEffect(() => {
+        setShellClientHeight(
+            document?.getElementById("shell-main-section")?.clientHeight
+        );
+        setShellHeaderSectionHeight(
+            document?.getElementsByClassName("shell-header-setion")[0]?.clientHeight
+        );
+        setShellOssMenubreadcrumsHeight(
+            document?.getElementsByClassName("oss-menu-breadcrums")[0]?.clientHeight
+        );
+        setShellOssHeaderMenuSectionHeight(
+            document?.getElementById("oss-header-menu-setion")?.clientHeight
+        );
+        setShellFooterHeight(document?.getElementsByTagName('footer')[0]?.clientHeight)
+        setSearchFieldHeight(document?.getElementsByClassName("csr-search-row")[0]?.clientHeight);
+        setGridWidth(window.innerWidth);
+    }, [screenPercentage]);
+    // Function to update the screen percentage
+    const handleScreenResize = () => {
+        const percentage = calculateScreenPercentage(); // Your function to calculate screen percentage
+        setScreenPercentage(percentage);
+    };
+    const calculateScreenPercentage = () => {
+        const screenWidth = window.innerWidth;
+        const screenHeight = window.innerHeight;
+        const totalPixels = screenWidth * screenHeight;
+        // Assuming a reference screen size of 1920x1080 for 100% screen size
+        const referenceWidth = 1920;
+        const referenceHeight = 1080;
+        const referencePixels = referenceWidth * referenceHeight;
+        const percentage = (totalPixels / referencePixels) * 100;
+        return screenWidth == defaultWindowWidth ? 0 : percentage;
+    };
+    // Attach event listener for screen resize
+    useEffect(() => {
+        window.addEventListener("resize", handleScreenResize);
+        return () => {
+            window.removeEventListener("resize", handleScreenResize);
+        };
+    }, []); // Empty dependency array ensures this effect runs only once after initial render
+
+    useEffect(() => {
+        let additionalHeight = pmdbProjectId > -1 ? 220 : 180;
+        let numRows = resultState?.length;
+        setGridHeight(isNaN(numRows) ? 0 : ((numRows * gridRowHeight) + additionalHeight));
+    }, [resultState]); //Calculate the total height as per the number of entries
     const setPercentage = (width = 0, percentage = 0, minWidth = 0) => {
-        let k_grid_width = document.querySelector("#kgrid-oss-checklistType")?.clientWidth;
+        let k_grid_width = document.querySelector("#kgrid-oss-csr-list")?.clientWidth;
         let fixedWidth = totalColumnFixedWidth;
         let dynamicWidth = 0;
-        let minScreenWidth = 1250;
+        let minScreenWidth = 2000;
         let maxScreenWidth;
         if (k_grid_width) {
             if (k_grid_width <= minScreenWidth) {
@@ -80,64 +674,1112 @@ const FocalList: React.FC<FocalListProps> = memo(({ orgName, orgType, onCreateFo
                 }
             }
         }
-
     }
     useEffect(() => {
+        // Check if initial data has been fetched to avoid duplicate API calls
+        if (CsrListDetails && CsrListDetails.length > 0) {
+            setData(kendoProcess(CsrListDetails, dataState)); // Client-side sorting here
+        }
+    }, [dataState]);
+    useEffect(() => {
+        if (gridRef?.current) {
+            const headerCells = gridRef.current.element.querySelectorAll('.k-header');
+            let calculatedFixedColumnWidth = 0;
+            let dynamicWidth = 0;
+            headerCells.forEach((cell, index) => {
+                if (gridRef.current.columns[index].width != undefined) {
+                    if (gridRef.current.columns[index].width.toString().indexOf('px') > -1) {
+                        calculatedFixedColumnWidth = calculatedFixedColumnWidth + parseInt(gridRef.current.columns[index].width)
+                    }
+                    else {
+                        dynamicWidth = dynamicWidth + gridRef.current.columns[index].width;
+                    }
+                };
+                const columnHeader = gridRef.current.columns[index].title;
+                cell.title = columnHeader;
+            });
+            setCalculatedDynamicColWidth(dynamicWidth);
+            setTotalColumnFixedWidth(calculatedFixedColumnWidth)
+        }
+    }, [gridRef, data])
+    const datastatechange = (event: GridDataStateChangeEvent) => {
+        //---adobe Analytics
+        logFilterAction(event);
+        event.dataState?.filter?.filters[0]['filters']?.forEach((item, index) => {
+            if (item.value != undefined && item.field == "RELEASE_DATE") {
+                const dateObject = new Date(item.value);
+                item.value = new Date(item.value);
+            }
+            else if (item.value != undefined && item.field == "CreationDateStr") {
+                const dateObject = new Date(item.value);
+                item.value = new Date(item.value);
+            }
+            else if (item.value != undefined && item.field == "ModificationDateStr") {
+                const dateObject = new Date(item.value);
+                item.value = new Date(item.value);
+            }
+        })
+        setSelectionValue(false);
+        setDataState(event.dataState);
+        fetchData(event.dataState);
 
-        if (!orgName) return;
+    };
 
-        fetchFocalList(orgType, orgName);
+    const handleCreateNewReport = () => {
+        if (ccldisplay) {
+            dispatch(showSnackbar
+                ({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Only one CCL report is permitted per project register."
+                }));
+            return;
+        } else if (ccnDisplay) {
+            dispatch(showSnackbar
+                ({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Only one CCN report is permitted per project register."
+                }));
+            return;
+        } else if (cpDisplay) {
+            dispatch(showSnackbar
+                ({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Only one CP report is permitted per project register."
+                }));
+            return;
+        }        
+        handleCloseCreateNew();
+        if (!csrWorkAppFlag) {
+            new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'ProjectId', projectId);
+        }
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'DocNumber', '');
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `DocRev`, '');
+        new StorageService().setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, `ReportTemplate`, selectedReportTemplate);
+        navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", "0").replace(":tabIndex", "-1"), { state: null });
+    }
 
-    }, [orgName, orgType]);
+    const [openCopyReportPopup, setOpenCopyReportPopup] = useState(false);
+    const handleCreatecopyReport = () => {
+        setOpenCopyReportPopup(true);
+    };
 
-    return (
-        <div className="focal-container">
-            <div className="focal-header">
+    const handleCloseCopyReportPopup = () => {
+        setCopyDisable(false);
+        setOpenCopyReportPopup(false);
+    };
+
+    const [openRevisionModelPopup, setOpenRevisionModelPopup] = useState(false);
+
+    const filterReportData = resultState.filter((data) => data.RPT_ID == selectedCsrListDtls[0]?.RPT_ID);
+
+    const [openCreateCopyModel, setOpenCreateCopyModel] = useState(false);
+    const handleOpenRevision = () => {
+        setOpenRevisionModelPopup(true);
+
+    }
+
+    const handleOpenCreatePopup = () => {
+        setOpenCreateCopyModel(true);
+
+    }
+
+    const handleCloseCreatePopup = () => {
+        setOpenCreateCopyModel(false);
+
+    }
+
+    const handleCloseRevisionPopup = () => {
+        setOpenRevisionModelPopup(false);
+    }
+
+    const onCopyReportPopupCopyClick = async (csrHeaderData: CSRHeaderDataForCopy) => {
+        CSRListService.CreateCopy(csrHeaderData.RPT_ID, true, csrHeaderData.TemplateId, csrHeaderData.TemplateTitle, csrHeaderData.PROJECT_ID, csrHeaderData.ProjectRegisterId).then((res) => {
+            if (res.data > 0) {
+                // snackbar
+                dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Report copied successfully." }));
+                handleCloseCopyReportPopup();
+                // navigate
+                setTimeout(() => {
+                    navigate(PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", res.data.toString()));
+                }, 2000)
+            }
+        })
+    }
+
+    const handleConfigReg = () => {
+        if (projectId && parseInt(projectId) > 0)
+            navigate(PathConstants.PROJECT_REGULATION.replace(":projectId", projectId));
+        else
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "error", snackbarMessage: "Invalid Project Id." }));
+    }
+
+    const handleDrawingViewReview = (action: string, rptId: number) => {
+        CSRListService.GetDrawingNoAssignForReportID(rptId).then((response) => {
+            if (response.data > 0) {
+                let dataToShare = {
+                    AppName: EnvDetail.AppName,
+                    Action: 'Bildr_Tool_Navigation',
+                    Detail: {
+                        action: action,
+                        reportId: rptId,
+                        drawingId: response.data
+                    }
+                };
+                let appDataEvent = new ShellEventRegister().getShellCheckListEntryEvent();
+                appDataEvent[`${EnvDetail.ParentAppName}_FindBuilderTool_EVENT_DATA`] = dataToShare;
+                window.dispatchEvent(appDataEvent);
+            }
+            else {
+                dispatch(showSnackbar({
+                    snackbarOpen: true,
+                    snackbarType: "error",
+                    snackbarMessage: "Drawing document not found."
+                }));
+            }
+        });
+    }
+
+    const handleDrawingReview = () => {
+        if (selectedCsrListDtls && selectedCsrListDtls.length == 1) {
+            handleDrawingViewReview("review", selectedCsrListDtls[0].RPT_ID);
+        }
+        else if (selectedCsrListDtls && selectedCsrListDtls.length > 1) {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select only one report." }));
+        }
+        else {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select report." }));
+        }
+    }
+
+    const fetchData = async (dataState) => {
+
+
+        const sortVal = {
+            field: dataState?.sort?.length > 0 ? dataState.sort[0].field : null,
+            dir: dataState?.sort?.length > 0 ? dataState.sort[0].dir : null,
+        };
+
+        let filterVal: ParameterObject[] = [];
+        let filterObjects: FilterParam[] = [];
+
+        if (dataState?.filter?.length > 0) {
+            if (dataState.filter.filters?.length > 0) {
+                for (let i = 0; i < dataState.filter.filters.length; i++) {
+
+                    if (dataState.filter.filters[i].filters.length != 0) {
+                        filterVal = [];
+                        for (let j = 0; j < dataState.filter.filters[i].filters.length; j++) {
+                            const parameterObject: ParameterObject = {
+                                field: dataState.filter.filters[i].filters[j].field,
+                                operator: dataState.filter.filters[i].filters[j].operator,
+                                value: dataState.filter.filters[i].filters[j].value
+                            };
+
+                            filterVal.push(parameterObject);
+                        }
+
+                        const filterObj: FilterParam = {
+                            filterObject: filterVal,
+                            logic: dataState.filter.filters[i].logic
+                        };
+                        filterObjects.push(filterObj);
+
+                    }
+
+                }
+            }
+        }
+        let selectedDisciplineId = (selectedDisciplinId != undefined && selectedDisciplinId != null && selectedDisciplinId != "") ? selectedDisciplinId : "N/A";
+        let inputProjectId = projectId != undefined && projectId != null ? projectId : "-1";
+        let projectRegisterId = (registerId === "0" || (registerId == undefined)) ? 0 : Number(registerId);
+        CsrListDetails = [];
+        selectedCsrListDtls = [];
+        CSRListService.getCSRList(inputProjectId, selectedDisciplineId, Number(groupId), projectRegisterId, selectedReportType).then((result) => {
+            CsrListDetails = result.data;
+            setData(kendoProcess(result.data, dataState));
+            setResultState(result.data);
+            setHasContent(result.data.length != 0 ? true : false);
+            setCclDisplay(
+                Array.isArray(result.data) &&
+                result.data.some(item => item.Designation === CCLRptTemplate.CCLRpt)
+            );
+            setCcnDisplay(
+                Array.isArray(result.data) &&
+                result.data.some(item => item.Designation === CCLRptTemplate.CCNRpt)
+            );
+            setCpDisplay(
+                Array.isArray(result.data) &&
+                result.data.some(item => item.Designation === CCLRptTemplate.CPRpt)
+            );
+            // Set Current User bemsId while loading page
+            let userToken = new UserToken();
+            let bemsId = userToken.getUserBemsId();
+            const newBemsId = Number(bemsId);
+            setCurrentUserBemsId(newBemsId);
+        });
+
+        // CSRListService.GetItarFlag(projectId || 0).then((responce)=>{
+        //     setItarProjectFlag(responce.data);(responce.data);
+        // });
+    };
+    useEffect(() => {
+        const loadRevisions = async () => {
+
+            const storedprojectNumber = storageService.getApplicationDataByKey(
+                `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+                'easaprojectno'
+            );
+            const storedeasapid = storageService.getApplicationDataByKey(
+                `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+                'easamyworkspaceprojectid'
+            );
+            const storedeasarevision = storageService.getApplicationDataByKey(
+                `${EnvDetail.ParentAppName}-easaActiveSubMenu`,
+                'easarevision'
+            );
+
+            const projectNumber = storedprojectNumber ? storedprojectNumber : null;
+
+
+            try {
+                const resp = await CSRListService.GetRevisionDetailsByProjectNumber(projectNumber);
+                const data = resp?.data ?? [];
+
+                setRevisions(data);
+                
+                if (data.length > 0) {
+                   const selectedData = data.find(item => item.ProjectRegisterId == storedeasapid);
+                   setSelectedProjectNumber(selectedData ? selectedData.Revision : "");
+                  } else {
+                     setSelectedProjectNumber("");
+                  }
+            } catch (err) {
+                console.error("Failed to load revisions", err);
+                setRevisions([]);
+                 setSelectedProjectNumber("");
+            }
+        };
+        loadRevisions();
+    }, []);
+
+      
+
+      const handleRevisionChange = (e) => {
+        const projectRegisterId = e.target.value as number;
+        const found = revisions.find(r => r.ProjectRegisterId === projectRegisterId);
+        let getCurProjectId = storageService.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaprojectno');
+        storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easaRevision', found ? found.Revision : "00");
+        sendEasaReportDataToShell(getCurProjectId, '', found ? found.Revision : "");
+        setSelectedProjectNumber(found ? found.Revision : "");
+        
+        // navigate to the new URL
+        const tempUrl = window.location.href;
+        var reg = tempUrl.split('/').toReversed()[0];
+        var grp = tempUrl.split('/').toReversed()[1];
+        window.location.href = tempUrl.replace(grp, groupId!).replace(reg, projectRegisterId ? projectRegisterId.toString() : "");
+        
+        
+        // new list based on -- projectRegisterId
+        let selectedDisciplineId = (selectedDisciplinId != undefined && selectedDisciplinId != null && selectedDisciplinId != "") ? selectedDisciplinId : "N/A";
+        let inputProjectId = projectId != undefined && projectId != null ? projectId : "-1";
+        CsrListDetails = [];
+        selectedCsrListDtls = [];
+        CSRListService.getCSRList(inputProjectId, selectedDisciplineId, Number(groupId), projectRegisterId, selectedReportType).then((result) => {
+            CsrListDetails = result.data;
+            setData(kendoProcess(result.data, dataState));
+            setResultState(result.data);
+            setHasContent(result.data.length != 0 ? true : false);
+            setCclDisplay(
+                Array.isArray(result.data) &&
+                result.data.some(item => item.Designation === CCLRptTemplate.CCLRpt)
+            );
+            setCcnDisplay(
+                Array.isArray(result.data) &&
+                result.data.some(item => item.Designation === CCLRptTemplate.CCNRpt)
+            );
+            setCpDisplay(
+                Array.isArray(result.data) &&
+                result.data.some(item => item.Designation === CCLRptTemplate.CPRpt)
+            );
+            // Set Current User bemsId while loading page
+            let userToken = new UserToken();
+            let bemsId = userToken.getUserBemsId();
+            const newBemsId = Number(bemsId);
+            setCurrentUserBemsId(newBemsId);
+        });
+      };
+
+    const onDeleteClick = () => {
+        var hdrSelected = false;
+        var documentIds: string;
+        if (selectedCsrListDtls && selectedCsrListDtls.length > 0) {
+            userDefinedConfirm({ message: 'Are you sure want to delete this report?', okBtnText: "Yes", cancelBtnText: "Cancel" }).then(
+                ({ button, input }) => {
+                    if (selectedCsrListDtls.length > 0) {
+                        hdrSelected = false;
+                        documentIds = selectedCsrListDtls.map(item => item.RPT_ID).join(',');
+                    }
+                    else if (UnSelectedCsrListDtls.length > 0) {
+                        hdrSelected = true;
+                        documentIds = UnSelectedCsrListDtls.map(item => item.RPT_ID).join(',');
+                    }
+                    else {
+                        hdrSelected = true;
+                        documentIds = "";
+                    }
+                    selectedCsrListDtls = [];
+                    UnSelectedCsrListDtls = [];
+                    var documentIdsList = documentIds.trim().split(',');
+                    CSRListService.DeleteCSRListDetails(documentIdsList).then((response) => {
+                        fetchData(dataState);
+                        dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "success", snackbarMessage: "Report(s) is deleted successfully." }));
+                        disablNo = disablNo - 1;;
+                        setSelectedItems(disablNo);
+                        setisButtonRevDisabled(true);
+                        setisButtonDelDisabled(true);
+                        setisButtonDrawingRevDisabled(true);
+                        uncheckHeaderCheckBox();
+                    });
+                },
+                () => {
+                    return;
+                }
+            );
+        } else {
+            dispatch(showSnackbar({ snackbarOpen: true, snackbarType: "info", snackbarMessage: "Please select report(s)." }));
+        }
+        setOpen(false);
+    }
+
+    const [isPopupOpen, setIsPopupOpen] = useState(false);
+    const [userStateData, setUserStateData] = useState('');
+    const [popupData, setPopupData] = useState<CSRApprovalUserList[]>([]);
+    const handleClosePopup = () => {
+        setIsPopupOpen(false);
+    };
+    const onStatusClick = async (
+        data
+    ) => {
+        if (data.TemplateTitle.toUpperCase() == ReportType.Drawing.toUpperCase() && !data.RELEASE_DATE) {
+            CSRListService.SyncReviewersAndRolesForDrawing(data.RPT_ID).then((result) => {
+                CSRListService.getReportWorkflowDetails(data.RPT_ID).then((response) => {
+                    setUserStateData(data);
+                    setPopupData(response.data);
+                    setIsPopupOpen(true);
+                });
+            });
+        }
+        else {
+            if (data.PendingWithBemsId.length > 0 && data.PendingWithBemsId.some(id => id < 0))
+                await CSRListService.UpdateExternalFocalStatus(data.RPT_ID);
+
+            CSRListService.getReportWorkflowDetails(data.RPT_ID).then((response) => {
+                setUserStateData(data);
+                setPopupData(response.data);
+                setIsPopupOpen(true);
+            });
+        }
+    };
+
+    const CustomCell = (prop) => {
+        return (
+            <td className="statusCol" title={prop.dataItem.STATE} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px" }}>
+
                 <Button
-                    className={`focal-tab ${activeTab === "list" ? "active" : ""}`}
-                    onClick={() => setActiveTab("list")}
-                    size="small"
-                    color="inherit"
-                    variant="outlined"
-                >
-                    <Typography sx={{ textTransform: "none", fontSize: "15px", fontWeight: 600 }}>
-                        List of Focals
-                    </Typography>
-                </Button>
-
-                <Button
-                    className={`focal-tab ${activeTab === "add" ? "active" : ""}`}
-                    onClick={() => {
-                        setActiveTab("add");
-                        onCreateFocal(orgName, orgType);
+                    variant={"text"}
+                    color={"primary"}
+                    onClick={() => onStatusClick(prop.dataItem)}
+                    sx={{
+                        textTransform: 'none',
+                        fontSize: "14px",
+                        padding: 0,
+                        justifyContent: "flex-start",
+                        "&:hover": {
+                            backgroundColor: "transparent", // Set the background color to transparent on hover
+                        },
+                        color: '#0078B8'
                     }}
-                    size="small"
-                    color="inherit"
-                    variant="outlined"
                 >
-                    <Typography sx={{ textTransform: "none", fontSize: "15px", fontWeight: 600 }}>
-                        Add New Focal
-                    </Typography>
+                    {prop.dataItem.STATE}
                 </Button>
+                {/* <CircleIcon className="statusIcon" fontSize="small" style={{ fill }} /> */}
+            </td>
+        )
+    };
+
+    const downloadFile = (response, fileName) => {
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName; // Change this as needed
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+    }
+
+    const onFileClickDownload = (selecetedDataItem: CSRHeaderData) => {
+        if (selecetedDataItem.PendingWithBemsId.includes(currentUserBemsId)
+            && currentUserBemsId != selecetedDataItem.AuthorBemsId
+        ) {
+            handleDrawingViewReview("review", selecetedDataItem.RPT_ID);
+        }
+        else {
+            handleDrawingViewReview("view", selecetedDataItem.RPT_ID);
+        }
+    }
+
+    const onDocumentNumberClick = async (
+        reportId: string, project_id: number, reportType: string, PendingWithBemsId: any[], templateTitle
+    ) => {
+        new StorageService().setApplicationDataByKey(
+            `${EnvDetail.ParentAppName}-${EnvDetail.AppName}`,
+            'SelectedEasaReportType',
+            templateTitle
+        );
+
+        if (templateTitle && templateTitle.toUpperCase() == ReportType.Drawing.toUpperCase() && !data.RELEASE_DATE) {
+            CSRListService.SyncReviewersAndRolesForDrawing(reportId).then((result) => {
+                if (csrWorkAppFlag) {
+                    storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrPmdbProjectId', project_id);
+                }
+                if (PendingWithBemsId.length > 0 && PendingWithBemsId.some(id => parseInt(id) < 0))
+                    CSRListService.UpdateExternalFocalStatus(reportId);
+                navigate(PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", reportId));
+            });
+        }
+        else {
+            if (csrWorkAppFlag) {
+                storageService.setApplicationDataByKey(`${EnvDetail.ParentAppName}-${EnvDetail.AppName}`, 'CsrPmdbProjectId', project_id);
+            }
+            //navigate(PathConstants.DYNAMIC_TAB.replace(":reportId", (reportId.toString() || "0")).replace(":tabIndex", ""));
+            if (PendingWithBemsId.length > 0 && PendingWithBemsId.some(id => parseInt(id) < 0))
+                await CSRListService.UpdateExternalFocalStatus(reportId);
+            navigate(PathConstants.COMPLIANCE_REPORT_BASE.replace(":reportId", reportId));
+            //navigate(PathConstants.GENERAL_TAB.replace(":reportId", reportId));
+        }
+    };
+
+    const ColumnMenuCheckboxFilter = (props: GridColumnMenuProps) => {
+        return (
+            <div>
+                <GridColumnMenuCheckboxFilter {...props} data={CsrListDetails} expanded={true} />
             </div>
+        );
+    }
+    const [anchorElCreate, setAnchorElCreate] = React.useState<null | HTMLElement>(null);
 
-      <AnyGrid
-        className="focal-grid"
-        scrollable="scrollable"
-        data={process(focalListData, dataState)}
-        {...dataState}
-        onDataStateChange={(e: any) => setDataState(e.dataState)}
-      >
-        <GridColumn field="" title="Sort" width={setPercentage(undefined, 0, 272)} />
-        <GridColumn field="NAME" title="Focal Names" width={setPercentage(undefined, 0, 272)} />
-        <GridColumn field="ADDRESS" title="Address" width={setPercentage(undefined, 0, 272)} />
-        <GridColumn field="PHONE" title="Phone" width={setPercentage(undefined, 0, 272)} />
-        <GridColumn field="DEPARTMENT" title="Position" width={setPercentage(undefined, 0, 272)} />
-        <GridColumn field="EMAIL" title="Email" width={setPercentage(undefined, 0, 272)} />
-      </AnyGrid>
+    const openCreateNew = Boolean(anchorElCreate);
+    const handleClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+        setAnchorElCreate(event.currentTarget);
+    };
 
+    const handleCloseCreateNew = () => {
+        setAnchorElCreate(null);
+    };
+
+    const shouldDisplayButton = (buttonName: string): boolean => {
+        if (controlVisibilityDtls && controlVisibilityDtls.length > 0)
+            return !controlVisibilityDtls.some(item => item.ControlName.toUpperCase() === buttonName.toUpperCase() && item.VisibilityFlag === "Y");
+        return true;
+    }
+
+    const checkIsAuthorReport = (selectedReportDetails) => {
+        if (selectedReportDetails && selectedReportDetails.length > 0) {
+            const checkAuthorReports = selectedReportDetails.filter((list) => list.CreatedBy == currentUserBemsId);
+            const checkIsReleasedReport = checkAuthorReports.filter((list) => list.STATE?.toLowerCase() == ReportStages.Released.toLowerCase());
+            const checkIsReviewReport = checkAuthorReports.filter((list) => list.WorkFlowStep > ReportStepId.CREATE_STEP);
+            if ((checkAuthorReports.length == selectedReportDetails.length) && checkIsReleasedReport.length == 0 && checkIsReviewReport.length == 0) {
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const handleCopyBtn = (selectedReportDetails) => {
+        if (selectedReportDetails && selectedReportDetails.length == 1) {
+            return false;
+        }
+        return true;
+    };
+    const card = (
+
+        <div key={easaMasterType} style={{ height: (gridHeight >= window.innerHeight || shellWorkAppContainerMaxHeight != 0) ? '100%' : '', width: '100%' }}>
+            {/* <div className="project-register-grid"> */}
+            <GridHelper toolbarSettings={{
+                showColumnsConfigurator: true
+
+            }}
+                style={{ height: (gridHeight >= window.innerHeight || shellWorkAppContainerMaxHeight != 0) ? '100%' : '', width: '100%' }}
+                dataItemKey={'RPT_ID'}
+                groupable={false}
+                data={resultState}
+                selectedReportType={selectedReportType}            >
+                <AnyGrid
+                    id="kgrid-oss-csr-list"
+                    ref={gridRef}
+                    style={{
+                        height:
+                            gridHeight >= window.innerHeight ||
+                                shellWorkAppContainerMaxHeight != 0
+                                ? "100%"
+                                : "",
+                        width: "100%",
+                    }}
+                    data={resultState}
+                    {...dataState}
+
+                    onDataStateChange={datastatechange}
+                    resizable={true}
+                    sortable={true}
+                    scrollable={"scrollable"}
+                    rowHeight={gridRowHeight}
+                    selectable={{
+                        enabled: true,
+                        drag: false,
+                        cell: false,
+                        mode: "multiple",
+                    }}
+                    dataItemKey={DATA_ITEM_KEY}
+                    onHeaderSelectionChange={onHeaderSelectionChange}
+                    onSelectionChange={onSelectionChange}
+                    selectedField={SELECTED_FIELD}
+                    columnMenuIcon={filterIcon}
+                >
+                    <GridToolbar className="topbarmain-height-grid">
+                        <div className="topbarmain-grid-wrap">
+                            <Grid item md={6}>
+                                {<Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || !templatesPresent || shouldDisplayButton("Create New")} className="csrlist-marginLeft10" id="createBtn" title="Create New" onClick={handleCreateNewReport} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create New</Typography></Button>}
+                                {(selectedReportType.toUpperCase() != ReportType.Drawing.toUpperCase()) &&
+                                    <Button className="csrlist-marginLeft10" id="copyBtn" title="Copy" disabled={copyDisable} onClick={handleCreatecopyReport} size={'small'} color={'inherit'}><ContentCopyIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Copy</Typography></Button>}
+                                {/* {<Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || checkDisciplinedValue()} className="csrlist-marginLeft10" id="createBtn" onClick={handleCreateNewReport} title="Create New Report" variant={"outlined"} size={'small'} color={'inherit'}><AddCircleOutlineIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create New</Typography></Button>} */}
+                                {<Button disabled={filterReportData[0]?.RELEASE_DATE == null || selectedCsrListDtls.length > 1 || shouldDisplayButton("Create Revision")} className="csrlist-marginLeft10" id="craeteRevBtn" variant={"outlined"} title="Create Revision" onClick={handleOpenRevision} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create Revision</Typography></Button>}
+                                {/* {<Button  className="csrlist-marginLeft10" id="createCopyBtn"  title="Create Copy" variant={"outlined"}  onClick={handleOpenCreatePopup} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Create Copy</Typography></Button>} */}
+                                {<Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || isButtonDelDisabled || checkIsAuthorReport(selectedCsrListDtls)} className="csrlist-marginLeft10" id="deleteBtn" title="Delete" onClick={onDeleteClick} variant={"outlined"} size={'small'} color={'inherit'}><DeleteSharpIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Delete</Typography></Button>}
+
+                                {!csrWorkAppFlag && <Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || shouldDisplayButton("Regulations")} className="csrlist-marginLeft10" id="configure-reg" title="Configure Regulations" variant={"outlined"} onClick={handleConfigReg} size={'small'} color={'inherit'}><LibraryAddOutlinedIcon className="iconClass" /><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Regulations</Typography></Button>}
+                                {(selectedReportType.toUpperCase() == ReportType.Drawing.toUpperCase()) &&
+                                    <Button disabled={commonFunction.getItarAccessStatus(getItarProjectFlag, isCurrentUserUSPerson) || isButtonDrawingRevDisabled} className="csrlist-marginLeft10" id="createBtn" title="Create New" onClick={handleDrawingReview} size={'small'} color={'inherit'}><Typography variant={"button"} sx={{ textTransform: 'none', fontSize: '14px' }}>Review</Typography></Button>
+                                }
+                            </Grid>
+
+                        {new CommonFunction().IsEASAReport() &&
+                         <Grid item md={6} sx={{ marginRight: "16px" }}>
+                            <div style={{ display: "flex", flexDirection: "row", gap: 2 }}>
+                                <label className="revision-label" style={{minWidth:"120px",marginTop:"4px",whiteSpace:'nowrap'}}>
+                                    Project Register
+                                </label>
+                                <FormControl variant="outlined" sx={{ minWidth: '165px' }} >
+                                    <Select
+                                        id="projectRegister"
+                                        value={selectedProjectNumber}
+                                        onChange={handleRevisionChange}
+                                        displayEmpty
+                                        inputProps={{ 'aria-label': 'Revision' }}
+                                        renderValue={() => (selectedProjectNumber ? selectedProjectNumber : "")}
+                                        size="small"
+                                        className="oss-csr-grid-toolbar-dropdown"
+                                        sx={{
+
+                                            whiteSpace: 'nowrap',
+                                            // overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            width: '100%'
+
+                                        }}
+                                    >
+                                        {revisions.map((rev) => (
+                                            <MenuItem key={rev.ProjectRegisterId} value={rev.ProjectRegisterId}>
+                                                {rev.Revision}
+                                            </MenuItem>
+                                        ))
+                                        }
+                                    </Select>
+                                </FormControl>
+                            </div>
+                        </Grid>}          
+                         
+                            <Grid item md={6} >
+                                {registerId !== undefined && Number(registerId) > 1 &&
+                                    <FormControl variant="outlined" sx={{ minWidth: '165px' }}>
+                                        <Select
+                                            id="reportType"
+                                            value={selectedReportType}
+                                            onChange={handleReportTypeChange}
+                                            displayEmpty
+                                            inputProps={{ 'aria-label': 'Report Type' }}
+                                            className="oss-csr-grid-toolbar-dropdown"
+                                            size="small"
+                                            sx={{
+
+                                                whiteSpace: 'nowrap',
+                                                // overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                width: '100%'
+
+                                            }}
+                                        >
+                                            {reportTypes.map((rt, index) => (
+                                                <MenuItem key={index} value={rt}>
+                                                    {rt}
+                                                </MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                }
+                            </Grid>
+                        </div>
+                    </GridToolbar>
+                    <GridColumn field={SELECTED_FIELD} title="Select/Deselect all rows" filterable={false} width="45px" headerSelectionValue={SelectionValue} columnType="checkbox" />
+                    {csrWorkAppFlag && registerId === '0' ?// Only render the Project Id column if csrWorkAppFlag is true
+                        <GridColumn
+                            {...columnProps('PROJECT_ID')}
+                            field="PROJECT_ID"
+                            title="Project Id"
+                            width="120px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.PROJECT_ID}>{props.dataItem.PROJECT_ID}</td>
+                                )
+                            }}
+                        /> : <></>
+                    }
+                    <GridColumn
+                        {...columnProps('DOCUMENT_NUMBER')}
+                        field="DOCUMENT_NUMBER"
+                        title={((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) ? "Document No" : "Report No"}
+                        width={setPercentage(undefined, 0, 180)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.DOCUMENT_NUMBER}>
+                                    <Button
+                                        variant={"text"}
+                                        color={"primary"}
+                                        onClick={() => onDocumentNumberClick(props.dataItem.RPT_ID, props.dataItem.PROJECT_ID, props.dataItem.REPORT_TYPE, props.dataItem.PendingWithBemsId, props.dataItem.TemplateTitle)}
+                                        sx={{
+                                            textTransform: 'none',
+                                            fontSize: "14px",
+                                            padding: 0,
+                                            justifyContent: "flex-start",
+                                            "&:hover": {
+                                                backgroundColor: "transparent", // Set the background color to transparent on hover
+                                            },
+                                            color: '#0078B8',
+                                            width: '100%',
+                                        }}
+                                    >
+                                        <span style={{
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                        }}>
+                                            {props.dataItem.DOCUMENT_NUMBER}
+                                        </span>
+                                    </Button>
+                                </td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('DOCUMENT_NAME')}
+                        field="DOCUMENT_NAME"
+                        title={((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) ? "Document Name" : "Report Name"}
+                        width={setPercentage(180, 0, 200)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.DOCUMENT_NAME}>{props.dataItem.DOCUMENT_NAME}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('TemplateTitle')}
+                        field="TemplateTitle"
+                        title="Report Type"
+                        width="175px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.TemplateTitle}>{props.dataItem.TemplateTitle}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('SupplierName')}
+                        field="SupplierName"
+                        title="Organisation Name"
+                        width={(selectedReportType.toUpperCase() == ReportType.DDTL.toUpperCase() || selectedReportType.toUpperCase() == ReportType.DQN.toUpperCase()) ? "200px" : "0px"}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.SupplierName}>{props.dataItem.SupplierName}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('DrawingFileName')}
+                        field="DrawingFileName"
+                        title="Drawing File"
+                        width={selectedReportType.toUpperCase() == ReportType.Drawing.toUpperCase() ? "200px" : "0px"}
+                        cells={
+                            {
+                                data: (props) => (
+                                    <td title={props.dataItem.DrawingFileName}>
+                                        <Button
+                                            variant={"text"}
+                                            sx={{
+                                                fontSize: "14px",
+                                                padding: 0,
+                                                justifyContent: "flex-start",
+                                                color: '#0078B8',
+                                                marginLeft: '12px',
+                                                paddingRight: '12px',
+                                                textTransform: 'none',
+                                                "&:hover": {
+                                                    backgroundColor: "transparent", // Set the background color to transparent on hover
+                                                },
+                                                width: '100%',
+                                            }}>
+                                            <span style={{
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                            }}
+                                                onClick={() => onFileClickDownload(props.dataItem)}
+                                            >
+                                                {props.dataItem.DrawingFileName}
+                                            </span>
+                                        </Button>
+                                    </td>
+                                )
+                            }
+                        }
+                    />
+                    <GridColumn
+                        {...columnProps('REVISION')}
+                        field="REVISION"
+                        title="Revision"
+                        width={setPercentage(100, 0, 110)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.REVISION}>{props.dataItem.REVISION}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('RELEASE_DATE') as any}
+                        field="RELEASE_DATE"
+                        title="Release Date"
+                        width="160px"
+                        filter="date"
+                        cells={{
+                            filterCell: (props: any) => (
+                                <DatePicker
+                                    {...props}
+                                    value={props.value ? new Date(`${props.value}`) : null}
+                                    format="MM-dd-yyyy" // Specify the format for the date picker
+                                    onChange={(event) => {
+                                        props.onChange({
+                                            value: event.target.value instanceof Date ? event.target.value : null,
+                                            operator: 'eq', // You can adjust the operator as needed
+                                            syntheticEvent: event.nativeEvent,
+                                        });
+                                    }}
+                                />
+                            ),
+                            data: (props) => {
+                                const releaseDate = props.dataItem.RELEASE_DATE ? new Date(props.dataItem.RELEASE_DATE) : null;
+                                return (<td title={releaseDate ? releaseDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                                >
+                                    {releaseDate && releaseDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                                </td>)
+                            }
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('AUTHOR')}
+                        field="AUTHOR"
+                        title="Author"
+                        width="150px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.AUTHOR}>{props.dataItem.AUTHOR}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('MODEL')}
+                        field="MODEL"
+                        title="Model"
+                        width={setPercentage(110, 0, 120)}
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.MODEL}>{props.dataItem.MODEL}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('STATE')}
+                        field="STATE"
+                        title="Stage"
+                        width="100px"
+                        cells={{ data: CustomCell }}
+                    />
+                    {((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) &&
+                        <GridColumn
+                            {...columnProps('CERTIFICATION')}
+                            field="CERTIFICATION"
+                            title="Certification"
+                            width="154px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.CERTIFICATION}>{props.dataItem.CERTIFICATION}</td>
+                                )
+                            }}
+                        />}
+                    {((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) &&
+                        <GridColumn
+                            {...columnProps('CERT_TYPE')}
+                            field="CERT_TYPE"
+                            title="Cert Type"
+                            width="135px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.CERT_TYPE}>{props.dataItem.CERT_TYPE}</td>
+                                )
+                            }}
+                        />}
+                    <GridColumn
+                        {...columnProps('ECCN')}
+                        field="ECCN"
+                        title="ECCN"
+                        width="110px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.ECCN}>{props.dataItem.ECCN}</td>
+                            )
+                        }}
+                    />
+                    {easaMasterType == EasaMasterType.Supplier && (
+                        <GridColumn
+                            {...columnProps('SupplierName')}
+                            field="SupplierName"
+                            title="Supplier Name"
+                            width="180px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.SupplierName}>{props.dataItem.SupplierName}</td>
+                                )
+                            }}
+
+                        />)}
+                    {easaMasterType == EasaMasterType.Supplier &&
+                        (
+
+
+                            <GridColumn
+                                {...columnProps('AssessmentRef')}
+                                field="AssessmentRef"
+                                title="Assessment Ref"
+                                width="180px"
+                                cells={{
+                                    data: props => (
+                                        <td title={props.dataItem.AssessmentRef}>{props.dataItem.AssessmentRef}</td>
+                                    )
+                                }}
+                            />)
+                    }
+
+                   {(easaMasterType === EasaMasterType.MRO || easaMasterType === EasaMasterType.DODO|| easaMasterType === EasaMasterType.DOPO )&&  (
+
+                        <GridColumn
+                            {...columnProps('MRO_Name')}
+                            field="MRO_Name"
+                            title={
+                                easaMasterType === EasaMasterType.DOPO ? "POA Holder" :  
+                                easaMasterType === EasaMasterType.MRO ? "MRO Name" :
+                                easaMasterType === EasaMasterType.DODO ? "ODA Holder" :""
+                              }
+                            width="160px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.SupplierName}>{props.dataItem.SupplierName}</td>
+                                )
+                            }}
+                        />)
+                    }
+
+                    {(easaMasterType === EasaMasterType.DOPO || easaMasterType === EasaMasterType.DODO|| easaMasterType === EasaMasterType.MRO) && 
+                        <GridColumn
+                            {...columnProps('MOA_Number')}
+                            field="MOA_Number"
+                            title={                                
+                                easaMasterType === EasaMasterType.MRO ? "MOA Number" :"Approval No"
+                              }
+                             
+                            width="160px"
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.AssessmentRef}>{props.dataItem.AssessmentRef}</td>
+                                )
+                            }}
+                        />
+                    }
+
+                    {((csrWorkAppFlag && registerId === '0') || (!csrWorkAppFlag && Number(projectId) > 0)) &&
+                        <GridColumn
+                            {...columnProps('CONTENT_OWNER')}
+                            field="CONTENT_OWNER"
+                            title="Content Owner"
+                            width={setPercentage(undefined, 0, 270)}
+                            cells={{
+                                data: props => (
+                                    <td title={props.dataItem.CONTENT_OWNER}>{props.dataItem.CONTENT_OWNER}</td>
+                                )
+                            }}
+                        />}
+                    <GridColumn
+                        {...columnProps('CreatedByName')}
+                        field="CreatedByName"
+                        title="Created By"
+                        width="154px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.CreatedByName}>{props.dataItem.CreatedByName}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('CreationDateStr') as any}
+                        field="CreationDateStr"
+                        title="Creation Date"
+                        width="160px"
+                        filter="date"
+                        filterCell={(props) => (
+                            <DatePicker
+                                {...props}
+                                value={props.value ? new Date(`${props.value}`) : null}
+                                format="MM-dd-yyyy" // Specify the format for the date picker
+                                onChange={(event) => {
+                                    props.onChange({
+                                        value: event.target.value instanceof Date ? event.target.value : null,
+                                        operator: 'eq', // You can adjust the operator as needed
+                                        syntheticEvent: event.nativeEvent,
+                                    });
+                                }}
+                            />
+                        )}
+
+                        cell={(props) => {
+                            const creationDate = props.dataItem.CreationDateStr ? new Date(props.dataItem.CreationDateStr) : null;
+                            return (<td title={creationDate ? creationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                            >
+                                {creationDate && creationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                            </td>)
+                        }} />
+                    <GridColumn
+                        {...columnProps('ModifiedByName')}
+                        field="ModifiedByName"
+                        title="Modified By"
+                        width="154px"
+                        cells={{
+                            data: props => (
+                                <td title={props.dataItem.ModifiedByName}>{props.dataItem.ModifiedByName}</td>
+                            )
+                        }}
+                    />
+                    <GridColumn
+                        {...columnProps('ModificationDateStr') as any}
+                        field="ModificationDateStr"
+                        title="Modification Date"
+                        width="180px"
+                        filter="date"
+                        filterCell={(props: any) => (
+                            <DatePicker
+                                {...props}
+                                value={props.value ? new Date(`${props.value}`) : null}
+                                format="MM-dd-yyyy" // Specify the format for the date picker
+                                onChange={(event) => {
+                                    props.onChange({
+                                        value: event.target.value instanceof Date ? event.target.value : null,
+                                        operator: 'eq', // You can adjust the operator as needed
+                                        syntheticEvent: event.nativeEvent,
+                                    });
+                                }}
+                            />
+                        )}
+
+                        cell={(props) => {
+                            const modificationDate = props.dataItem.ModificationDateStr ? new Date(props.dataItem.ModificationDateStr) : null;
+                            return (<td title={modificationDate ? modificationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' }) : ""}
+                            >
+                                {modificationDate && modificationDate.toLocaleDateString(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })}
+                            </td>)
+                        }} />
+
+                </AnyGrid>
+            </GridHelper>
         </div >
     );
-});
+    useEffect(() => {
+        if (selectedCsrListDtls?.length > 0) {
+            setisButtonDelDisabled(false);
+        } else {
+            setisButtonDelDisabled(true);
+        }
+        if (selectedCsrListDtls?.length == 1 && (selectedCsrListDtls[0].STATE === ReportStages.Create || selectedCsrListDtls[0].STATE === ReportStages.Edit || selectedCsrListDtls[0].STATE === ReportStages.Released)) {
+            setCopyDisable(false);
+        }
+        else {
+            setCopyDisable(true);
+        }
+    }, [selectedCsrListDtls]);
+    return (
+        <>
+            {openCreateCopyModel && <CreateCopyPopup isOpen={openCreateCopyModel} onCloseRevisionModelPopup={handleCloseCreatePopup} />}
+            {openRevisionModelPopup && <CreateRevisionPopup isOpen={openRevisionModelPopup} DocId={filterReportData[0]?.DOCUMENT_NUMBER} onCloseRevisionModelPopup={handleCloseRevisionPopup} rptId={selectedCsrListDtls[0]?.RPT_ID} />}
+            {openCopyReportPopup && <CopyReportPopup open={openCopyReportPopup} onClose={handleCloseCopyReportPopup} selectedCsrListDtls={selectedCsrListDtls} onCopyClick={onCopyReportPopupCopyClick} />}
+            <Container
+                fixed
+                style={{
+                    height:
+                        gridHeight >= window.innerHeight
+                            ? "100vh"
+                            : `${window.innerHeight}px`,
+                    maxHeight:
+                        shellWorkAppContainerMaxHeight != 0
+                            ? shellWorkAppContainerMaxHeight
+                            : `${window.innerHeight}px`,
+                    width: `${window.innerWidth}px`,
+                    overflowY: "hidden",
+                    marginTop: '6px'
+                }}
+                className="adobe-FINDCSR-CSRListGrid"
+            >
+                <Card
+                    style={{
+                        height:
+                            shellWorkAppContainerMaxHeight != 0
+                                ? gridHeight >= shellWorkAppContainerMaxHeight
+                                    ? "100%"
+                                    : ""
+                                : gridHeight >= window.innerHeight
+                                    ? "100%"
+                                    : "",
+                        borderLeft: "5px solid rgb(227, 150, 78)",
+                    }}
+                >
+                    {card}
+                </Card>
+                {isPopupOpen && <WorkFlowPopup
+                    isOpen={isPopupOpen}
+                    handleClose={handleClosePopup}
+                    dataList={popupData}
+                    userData={userStateData}
 
-export default FocalList;
+                />}
+            </Container>
+        </>
+    );
+};
+export default CSRList;
