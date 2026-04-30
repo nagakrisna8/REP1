@@ -26,3 +26,22 @@
             + "/" + '0' + '/tab/' + '-1');
     }
 }
+
+
+const navigateToCSRCreateNew = (templateName:string, templateId:number) => {
+    const storageServiceTemp = new StorageService();
+    const projectRegisterId = storageServiceTemp.getApplicationDataByKey(`${EnvDetail.ParentAppName}-easaActiveSubMenu`, 'easamyworkspaceprojectid');
+    const groupId = 19;
+    let dataToShare = {
+        Action: "CCL_CSR_Create_New_Navigation",
+        Detail: {
+            projectRegisterId,
+            groupId,
+            templateName,
+            templateId
+        }
+    };
+    let appDataEvent = new ShellEventRegister().getShellEvent();
+    appDataEvent[`${EnvDetail.ParentAppName}_${EnvDetail.AppName}_EVENT_DATA`] = dataToShare;
+    window.dispatchEvent(appDataEvent);
+};
